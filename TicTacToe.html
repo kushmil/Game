@@ -1,816 +1,979 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#111111" id="meta-theme-color">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Tic Tac Toe</title>
-
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>TicToe</title>
+    <link id="manifest-link" rel="manifest" href="">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
     
-    <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
     <style>
-        /* CSS Variables - Apple Matte Aesthetics */
         :root {
-            /* Matte White Theme */
-            --bg-light: #F2F2F7;
-            --surface-light: #FFFFFF;
-            --border-light: #D1D1D6;
-            --text-light: #000000;
-            --text-sec-light: #6E6E73;
-            --accent-light: #007AFF;
-            --glow-light: rgba(0, 122, 255, 0.3);
-
-            /* Matte Dark Theme */
-            --bg-dark: #111111;
-            --surface-dark: #1C1C1E;
-            --border-dark: #2C2C2E;
-            --text-dark: #FFFFFF;
-            --text-sec-dark: #8E8E93;
-            --accent-dark: #0A84FF;
-            --glow-dark: rgba(10, 132, 255, 0.3);
-            
-            /* Default to Dark */
-            --bg: var(--bg-dark);
-            --surface: var(--surface-dark);
-            --border: var(--border-dark);
-            --text: var(--text-dark);
-            --text-sec: var(--text-sec-dark);
-            --accent: var(--accent-dark);
-            --glow: var(--glow-dark);
+            /* Light Theme (Default) */
+            --bg-color: #FFFFFF;
+            --text-color: #111111;
+            --text-secondary: #8E8E93;
+            --board-line: #E5E5EA;
+            --accent-color: #007AFF;
+            --menu-btn-bg: #F2F2F7;
+            --menu-btn-shadow: 0 4px 14px rgba(0,0,0,0.08);
+            --toggle-bg: #E5E5EA;
+            --cell-size: min(28vw, 100px);
+            --font-main: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+            --font-game: 'Orbitron', sans-serif;
+            --spring-easing: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            --blur-filter: blur(20px);
+            --win-glow: 0 0 15px rgba(0, 122, 255, 0.4);
         }
 
-        [data-theme="light"] {
-            --bg: var(--bg-light);
-            --surface: var(--surface-light);
-            --border: var(--border-light);
-            --text: var(--text-light);
-            --text-sec: var(--text-sec-light);
-            --accent: var(--accent-light);
-            --glow: var(--glow-light);
+        [data-theme="dark"] {
+            /* AMOLED Dark Theme */
+            --bg-color: #000000;
+            --text-color: #FFFFFF;
+            --text-secondary: #8E8E93;
+            --board-line: #1C1C1E;
+            --accent-color: #0A84FF;
+            --menu-btn-bg: #1C1C1E;
+            --menu-btn-shadow: none;
+            --toggle-bg: #3A3A3C;
+            --win-glow: 0 0 15px rgba(10, 132, 255, 0.5);
         }
 
-        /* Global Reset & Base */
         * {
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        body, html {
             margin: 0;
             padding: 0;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            transition: background-color 0.4s ease, color 0.4s ease;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-        }
-
-        /* Full Screen Wrapper (No Container) */
-        #app-wrapper {
             width: 100%;
             height: 100%;
-            position: relative;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            overflow: hidden;
+            transition: background-color 0.4s ease, color 0.4s ease;
         }
 
-        /* Screens perfectly centered without borders */
         .screen {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            max-width: 500px; /* Keeps UI readable on large screens */
-            margin: 0 auto;
-            right: 0;
             display: flex;
             flex-direction: column;
-            padding: 32px 24px;
-            transition: opacity 0.4s ease, transform 0.4s ease;
+            justify-content: center;
+            align-items: center;
             opacity: 0;
-            pointer-events: none;
-            transform: scale(0.98);
+            visibility: hidden;
+            transition: opacity 0.4s ease, transform 0.4s ease, filter 0.4s ease;
+            z-index: 10;
         }
 
         .screen.active {
             opacity: 1;
-            pointer-events: all;
-            transform: scale(1);
+            visibility: visible;
+            transform: translateY(0) scale(1);
+            z-index: 20;
         }
 
-        /* Typography */
-        h1 {
-            font-size: 34px;
+        .screen.slide-up-hidden {
+            transform: translateY(100%);
+        }
+
+        .screen.bg-blur {
+            filter: var(--blur-filter);
+        }
+
+        /* Splash Screen */
+        #splash {
+            background-color: var(--bg-color);
+            z-index: 100;
+        }
+        .splash-title {
+            font-size: 3rem;
             font-weight: 700;
-            letter-spacing: -0.5px;
-            margin-bottom: 6px;
+            letter-spacing: -1px;
+            animation: splashAnim 2s forwards;
+        }
+        .splash-credit {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 10px;
+            opacity: 0;
+            animation: fadeIn 1s 0.5s forwards;
         }
 
-        p.subtitle {
-            font-size: 16px;
-            color: var(--text-sec);
-            font-weight: 500;
-            margin-bottom: 32px;
+        @keyframes splashAnim {
+            0% { opacity: 0; transform: scale(0.95); }
+            20% { opacity: 1; transform: scale(1); }
+            80% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1.05); filter: blur(5px); }
         }
-
-        /* Splash Screen Elements */
-        .splash-header {
-            text-align: center;
-            margin-top: 4vh;
-        }
-
-        .section-title {
-            font-size: 14px;
-            text-transform: uppercase;
-            color: var(--text-sec);
-            font-weight: 600;
-            letter-spacing: 1px;
-            margin-bottom: 16px;
-            margin-top: 32px;
-        }
-
-        /* Cards */
-        .card-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .card {
-            background: var(--surface);
-            border: 2px solid var(--border);
-            border-radius: 20px;
-            padding: 24px 16px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-        }
-
-        .card svg {
-            width: 36px;
-            height: 36px;
-            stroke: var(--text);
-            margin-bottom: 16px;
-            transition: stroke 0.3s ease;
-        }
-
-        .card h3 {
-            font-size: 17px;
-            font-weight: 600;
-        }
-
-        .card.selected {
-            border-color: var(--accent);
-            background: rgba(10, 132, 255, 0.05);
-        }
-
-        .card.selected svg {
-            stroke: var(--accent);
-        }
-
-        .card:active {
-            transform: scale(0.95);
-        }
-
-        /* Pills */
-        .pill-group {
-            display: flex;
-            gap: 8px;
-            background: var(--surface);
-            padding: 6px;
-            border-radius: 100px;
-            border: 1px solid var(--border);
-            transition: opacity 0.3s ease;
-        }
-
-        .pill {
-            flex: 1;
-            text-align: center;
-            padding: 14px 0;
-            font-size: 15px;
-            font-weight: 600;
-            border-radius: 100px;
-            cursor: pointer;
-            color: var(--text-sec);
-            transition: all 0.3s ease;
-        }
-
-        .pill.selected {
-            background: var(--accent);
-            color: #FFF;
-            box-shadow: 0 4px 12px var(--glow);
-        }
-
-        /* Buttons */
-        .btn-primary {
-            margin-top: auto;
-            margin-bottom: 2vh;
-            background: var(--accent);
-            color: #FFF;
-            border: none;
-            border-radius: 18px;
-            padding: 20px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            transition: all 0.2s ease;
-            box-shadow: 0 6px 20px var(--glow);
-        }
-
-        .btn-primary:active {
-            transform: scale(0.96);
-            opacity: 0.9;
-        }
-
-        .btn-secondary {
-            background: var(--surface);
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 18px;
-            padding: 18px;
-            font-size: 17px;
-            font-weight: 600;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 12px;
-            transition: all 0.2s ease;
-        }
-        
-        .btn-secondary:active {
-            transform: scale(0.96);
-            background: var(--border);
+        @keyframes fadeIn {
+            to { opacity: 1; }
         }
 
         /* Top Bar */
         .top-bar {
+            position: absolute;
+            top: env(safe-area-inset-top, 20px);
+            right: 20px;
+            z-index: 50;
+            display: flex;
+            gap: 15px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            transition: transform 0.2s ease, background 0.2s;
+        }
+        .icon-btn:active {
+            transform: scale(0.9);
+            background: var(--menu-btn-bg);
+        }
+        .icon-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+            transition: transform 0.5s var(--spring-easing);
+        }
+
+        /* Menu */
+        .menu-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            width: 80%;
+            max-width: 300px;
+        }
+
+        .menu-btn {
+            background-color: var(--menu-btn-bg);
+            color: var(--text-color);
+            border: none;
+            padding: 18px 24px;
+            border-radius: 16px;
+            font-family: var(--font-game);
+            font-size: 1.1rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            box-shadow: var(--menu-btn-shadow);
+            cursor: pointer;
+            transition: transform 0.1s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .menu-btn:active {
+            transform: scale(0.96);
+        }
+        .menu-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: currentColor;
+        }
+
+        .branding {
+            position: absolute;
+            bottom: env(safe-area-inset-bottom, 30px);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        /* Setup Flow */
+        .setup-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 30px;
+            font-family: var(--font-game);
+        }
+        
+        .mode-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 90%;
+            max-width: 340px;
+        }
+        
+        .mode-card {
+            background-color: var(--menu-btn-bg);
+            border-radius: 20px;
+            padding: 30px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            box-shadow: var(--menu-btn-shadow);
+            cursor: pointer;
+            transition: transform 0.3s var(--spring-easing), border 0.2s;
+            border: 2px solid transparent;
+        }
+        .mode-card:active {
+            transform: scale(0.95);
+        }
+        .mode-card.selected {
+            border-color: var(--accent-color);
+            background-color: rgba(0, 122, 255, 0.1);
+        }
+        .mode-card svg {
+            width: 48px;
+            height: 48px;
+            fill: var(--text-color);
+        }
+        .mode-card span {
+            font-family: var(--font-game);
+            font-size: 0.9rem;
+        }
+
+        .diff-selector {
+            display: flex;
+            background: var(--menu-btn-bg);
+            border-radius: 12px;
+            padding: 4px;
+            margin-top: 30px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.3s, transform 0.3s;
+            pointer-events: none;
+        }
+        .diff-selector.visible {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        .diff-btn {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-family: var(--font-main);
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+        .diff-btn.active {
+            background: var(--bg-color);
+            color: var(--text-color);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .start-btn {
+            margin-top: 40px;
+            background: var(--accent-color);
+            color: #FFF;
+            border: none;
+            padding: 16px 40px;
+            border-radius: 24px;
+            font-family: var(--font-game);
+            font-size: 1.1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+            transition: transform 0.2s;
+        }
+        .start-btn:active {
+            transform: scale(0.94);
+        }
+
+        /* Settings Flow */
+        .setting-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 4vh;
-            margin-top: 2vh;
+            width: 85%;
+            max-width: 320px;
+            padding: 20px 0;
+            border-bottom: 1px solid var(--board-line);
         }
-
-        .top-bar h2 {
-            font-size: 22px;
-            font-weight: 700;
+        .setting-label {
+            font-size: 1.1rem;
+            font-weight: 500;
         }
-
-        .theme-toggle {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+        .toggle-switch {
+            width: 50px;
+            height: 30px;
+            background: var(--toggle-bg);
+            border-radius: 15px;
+            position: relative;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background 0.3s;
         }
-
-        .theme-toggle svg {
-            width: 22px;
-            height: 22px;
-            stroke: var(--text);
-            transition: all 0.3s ease;
+        .toggle-switch.on {
+            background: var(--accent-color);
         }
-
-        .theme-toggle:active {
-            transform: scale(0.9);
+        .toggle-knob {
+            width: 26px;
+            height: 26px;
+            background: #FFF;
+            border-radius: 50%;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.3s var(--spring-easing);
+        }
+        .toggle-switch.on .toggle-knob {
+            transform: translateX(20px);
+        }
+        .back-btn {
+            margin-top: 40px;
+            padding: 12px 24px;
+            border-radius: 12px;
+            background: var(--menu-btn-bg);
+            color: var(--text-color);
+            border: none;
+            font-family: var(--font-main);
+            font-weight: 600;
+            cursor: pointer;
         }
 
         /* Game Board */
-        .board-wrapper {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
+        .game-header {
+            position: absolute;
+            top: max(env(safe-area-inset-top, 40px), 40px);
+            font-family: var(--font-game);
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        .turn-indicator {
+            color: var(--accent-color);
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+        .board-container {
+            position: relative;
+            width: calc(var(--cell-size) * 3);
+            height: calc(var(--cell-size) * 3);
         }
         
-        .game-status {
-            text-align: center;
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 32px;
-            color: var(--accent);
-            height: 24px;
+        .board-line {
+            position: absolute;
+            background-color: var(--board-line);
+            border-radius: 2px;
         }
-
-        .board {
+        .line-v { width: 3px; height: 0; top: 0; transition: height 0.6s var(--spring-easing); }
+        .line-h { height: 3px; width: 0; left: 0; transition: width 0.6s var(--spring-easing); }
+        
+        .board-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            aspect-ratio: 1;
+            grid-template-rows: repeat(3, 1fr);
             width: 100%;
-            max-width: 400px;
-            margin: 0 auto;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 2;
         }
-
         .cell {
-            background: var(--surface);
-            border: 2px solid var(--border);
-            border-radius: 24px;
+            width: var(--cell-size);
+            height: var(--cell-size);
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 56px;
-            font-weight: 700;
             cursor: pointer;
-            transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+        
+        .mark-svg {
+            width: 60%;
+            height: 60%;
+            stroke: var(--text-color);
+            stroke-width: 12;
+            stroke-linecap: round;
+            fill: none;
+        }
+        .mark-x {
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            transition: stroke-dashoffset 0.2s linear;
+        }
+        .mark-o {
+            stroke-dasharray: 200;
+            stroke-dashoffset: 200;
+            transition: stroke-dashoffset 0.2s linear;
         }
 
-        .cell.x {
-            color: var(--text);
+        .win-line {
+            position: absolute;
+            background-color: var(--accent-color);
+            height: 4px;
+            border-radius: 2px;
+            z-index: 5;
+            transform-origin: left center;
+            box-shadow: var(--win-glow);
+            width: 0;
+            opacity: 0;
+            transition: width 0.4s var(--spring-easing), opacity 0.2s;
         }
 
-        .cell.o {
-            color: var(--accent);
+        .game-controls {
+            position: absolute;
+            bottom: max(env(safe-area-inset-bottom, 40px), 40px);
+            display: flex;
+            gap: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transform: translateY(10px);
+            transition: opacity 0.3s, transform 0.3s;
+        }
+        .game-controls.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        
+        .ctrl-btn {
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-family: var(--font-game);
+            font-size: 0.9rem;
+            border: none;
+            cursor: pointer;
+            box-shadow: var(--menu-btn-shadow);
+            transition: transform 0.2s;
+        }
+        .ctrl-btn:active { transform: scale(0.94); }
+        .btn-restart { background: var(--text-color); color: var(--bg-color); }
+        .btn-menu { background: var(--menu-btn-bg); color: var(--text-color); }
+        
+        .overlay-msg {
+            position: absolute;
+            top: 30%;
+            font-family: var(--font-game);
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            opacity: 0;
+            transform: scale(0.8);
+            transition: opacity 0.4s, transform 0.4s var(--spring-easing);
+            z-index: 10;
+            pointer-events: none;
+            text-align: center;
+        }
+        .overlay-msg.show {
+            opacity: 1;
+            transform: scale(1);
         }
 
-        .cell:active {
-            transform: scale(0.92);
-        }
-
-        .cell.win {
-            background: var(--accent);
-            border-color: var(--accent);
-            color: #FFF !important;
-            box-shadow: 0 0 24px var(--glow);
-            transform: scale(1.05);
-            z-index: 2;
-        }
-
-        /* SweetAlert Apple Style Overrides */
-        .apple-alert {
-            border-radius: 28px !important;
-            background: var(--surface) !important;
-            color: var(--text) !important;
-            border: 1px solid var(--border) !important;
-            box-shadow: 0 24px 48px rgba(0,0,0,0.2) !important;
-        }
-        .apple-alert-title {
-            font-family: 'Inter', sans-serif !important;
-            font-weight: 700 !important;
-            font-size: 26px !important;
-        }
-        .apple-alert-btn {
-            border-radius: 14px !important;
-            font-family: 'Inter', sans-serif !important;
-            font-weight: 600 !important;
-            padding: 14px 28px !important;
-        }
-
-        /* Hide elements dynamically */
-        .hidden {
-            display: none !important;
-        }
     </style>
 </head>
-<body>
+<body data-theme="light">
 
-<div id="app-wrapper">
-    
-    <!-- Splash / Setup Screen -->
-    <div id="splash-screen" class="screen active">
-        <div class="splash-header">
-            <h1>Tic Tac Toe</h1>
-            <p class="subtitle">Minimal Strategy Game</p>
-        </div>
-
-        <div class="section-title">Select Mode</div>
-        <div class="card-grid">
-            <div class="card selected" id="mode-pve" onclick="selectMode('pve')">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
-                <h3>Bot vs You</h3>
-            </div>
-            <div class="card" id="mode-pvp" onclick="selectMode('pvp')">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                <h3>1 vs 1 Player</h3>
-            </div>
-        </div>
-
-        <div id="difficulty-section">
-            <div class="section-title">Difficulty</div>
-            <div class="pill-group">
-                <div class="pill" id="diff-easy" onclick="selectDifficulty('easy')">Easy</div>
-                <div class="pill selected" id="diff-medium" onclick="selectDifficulty('medium')">Medium</div>
-                <div class="pill" id="diff-hard" onclick="selectDifficulty('hard')">Hard</div>
-            </div>
-        </div>
-
-        <button class="btn-primary" onclick="startGame()">Start Game</button>
+    <!-- Top Universal Theme Toggle -->
+    <div class="top-bar" id="topBar" style="display: none;">
+        <button class="icon-btn" id="themeToggle" aria-label="Toggle Theme">
+            <svg viewBox="0 0 24 24" id="themeIcon">
+                <!-- Sun Icon -->
+                <path d="M12 4V2M12 22v-2M4 12H2m20 0h-2m-2.05-6.95l-1.41-1.41M5.46 18.54l-1.41-1.41M18.54 18.54l-1.41 1.41M5.46 5.46l-1.41 1.41M12 17a5 5 0 100-10a5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>
+            </svg>
+        </button>
     </div>
 
-    <!-- Main Game Screen -->
-    <div id="game-screen" class="screen">
-        <div class="top-bar">
-            <h2>Tic Tac Toe</h2>
-            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle Theme">
-                <!-- Sun Icon -->
-                <svg id="icon-sun" class="hidden" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                <!-- Moon Icon -->
-                <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+    <!-- Splash Screen -->
+    <div id="splash" class="screen active">
+        <div class="splash-title">TicToe</div>
+        <div class="splash-credit">Created by AnshuRajhans</div>
+    </div>
+
+    <!-- Main Menu Screen -->
+    <div id="menu" class="screen">
+        <div class="menu-container">
+            <button class="menu-btn" onclick="app.navTo('setup')">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                Start Game
+            </button>
+            <button class="menu-btn" onclick="app.navTo('paused')">
+                <svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                Paused
+            </button>
+            <button class="menu-btn" onclick="app.navTo('settings')">
+                <svg viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg>
+                Settings
             </button>
         </div>
+        <div class="branding">Created by AnshuRajhans</div>
+    </div>
 
-        <div class="board-wrapper">
-            <div class="game-status" id="game-status">Your Turn</div>
-            <div class="board" id="board">
+    <!-- Paused / Placeholder Screen -->
+    <div id="paused" class="screen slide-up-hidden">
+        <div class="setup-title">Game Paused</div>
+        <button class="back-btn" onclick="app.navTo('menu')">Return to Menu</button>
+    </div>
+
+    <!-- Settings Screen -->
+    <div id="settings" class="screen slide-up-hidden">
+        <div class="setup-title">Settings</div>
+        
+        <div class="setting-row">
+            <span class="setting-label">Sound & Haptics</span>
+            <div class="toggle-switch on" id="soundToggle" onclick="app.toggleSetting('sound')">
+                <div class="toggle-knob"></div>
+            </div>
+        </div>
+        
+        <div class="setting-row">
+            <span class="setting-label">Animations</span>
+            <div class="toggle-switch on" id="animToggle" onclick="app.toggleSetting('anim')">
+                <div class="toggle-knob"></div>
+            </div>
+        </div>
+
+        <button class="back-btn" onclick="app.navTo('menu')">Done</button>
+    </div>
+
+    <!-- Game Setup Screen -->
+    <div id="setup" class="screen slide-up-hidden">
+        <div class="setup-title">Select Mode</div>
+        <div class="mode-grid">
+            <div class="mode-card selected" id="mode-ai" onclick="app.selectMode('ai')">
+                <svg viewBox="0 0 24 24"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h5a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2V9a2 2 0 012-2h5V5.73A2 2 0 1112 2zM8 12a2 2 0 100 4 2 2 0 000-4zm8 0a2 2 0 100 4 2 2 0 000-4z"/></svg>
+                <span>AI vs You</span>
+            </div>
+            <div class="mode-card" id="mode-pvp" onclick="app.selectMode('pvp')">
+                <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
+                <span>1 vs 1</span>
+            </div>
+        </div>
+
+        <div class="diff-selector visible" id="diffSelector">
+            <button class="diff-btn" onclick="app.selectDiff('easy')">Easy</button>
+            <button class="diff-btn active" onclick="app.selectDiff('medium')">Medium</button>
+            <button class="diff-btn" onclick="app.selectDiff('hard')">Hard</button>
+        </div>
+
+        <button class="start-btn" onclick="app.startGame()">Start Match</button>
+        <button class="back-btn" style="background:none; box-shadow:none; margin-top:20px;" onclick="app.navTo('menu')">Cancel</button>
+    </div>
+
+    <!-- Game Board Screen -->
+    <div id="game" class="screen slide-up-hidden">
+        <div class="game-header">
+            <div id="gameTitle">Match</div>
+            <div class="turn-indicator" id="turnIndicator">X's Turn</div>
+        </div>
+        
+        <div class="overlay-msg" id="overlayMsg">Player X Wins</div>
+
+        <div class="board-container" id="boardContainer">
+            <!-- Grid Lines -->
+            <div class="board-line line-v" style="left: 33.33%;"></div>
+            <div class="board-line line-v" style="left: 66.66%;"></div>
+            <div class="board-line line-h" style="top: 33.33%;"></div>
+            <div class="board-line line-h" style="top: 66.66%;"></div>
+            
+            <div class="win-line" id="winLine"></div>
+
+            <div class="board-grid" id="boardGrid">
                 <!-- Cells generated by JS -->
             </div>
         </div>
 
-        <div class="controls">
-            <button class="btn-secondary" onclick="resetBoard(true)">Restart Game</button>
-            <button class="btn-secondary" onclick="goToMenu()" style="color: var(--accent); border-color: transparent;">Change Mode</button>
+        <div class="game-controls" id="gameControls">
+            <button class="ctrl-btn btn-restart" onclick="app.resetGame()">Restart</button>
+            <button class="ctrl-btn btn-menu" onclick="app.navTo('menu')">Menu</button>
         </div>
     </div>
 
-</div>
+    <!-- SVG Templates -->
+    <template id="svg-x">
+        <svg class="mark-svg" viewBox="0 0 100 100">
+            <line x1="20" y1="20" x2="80" y2="80" class="mark-x" id="x1"/>
+            <line x1="80" y1="20" x2="20" y2="80" class="mark-x" id="x2"/>
+        </svg>
+    </template>
+    <template id="svg-o">
+        <svg class="mark-svg" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="30" class="mark-o"/>
+        </svg>
+    </template>
 
 <script>
-    /* --- Premium Sound System (Web Audio API) --- */
-    let audioCtx;
-
-    // Initialize audio context safely on first user interaction
-    function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
-    }
-    document.addEventListener('pointerdown', initAudio, { once: true });
-
-    function playTone(freq, type, duration, volume) {
-        if (!audioCtx) return;
-        try {
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            
-            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-            
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            
-            osc.start();
-            osc.stop(audioCtx.currentTime + duration);
-        } catch (e) { console.warn("Audio skipped"); }
-    }
-
-    // Sound Presets
-    function playClick() { playTone(450, 'sine', 0.08, 0.05); }
-    function playPlaceX() { playTone(600, 'sine', 0.1, 0.08); }
-    function playPlaceO() { playTone(800, 'sine', 0.1, 0.08); }
-    function playWinSound() {
-        playTone(523.25, 'triangle', 0.15, 0.1); // C5
-        setTimeout(() => playTone(659.25, 'triangle', 0.15, 0.1), 100); // E5
-        setTimeout(() => playTone(783.99, 'triangle', 0.15, 0.1), 200); // G5
-        setTimeout(() => playTone(1046.50, 'triangle', 0.4, 0.15), 300); // C6
-    }
-    function playDrawSound() {
-        playTone(300, 'sawtooth', 0.2, 0.05);
-        setTimeout(() => playTone(250, 'sawtooth', 0.3, 0.05), 150);
-    }
-
-
-    /* --- PWA Setup --- */
-    const manifest = {
-        name: "Tic Tac Toe",
-        short_name: "TTT",
-        start_url: ".",
-        display: "standalone",
-        background_color: "#111111",
-        theme_color: "#0A84FF",
-        icons: [{
-            src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMEE4NEZGIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48bGluZSB4MT0iOSIgeTE9IjMiIHgyPSI5IiB5Mj0iMjEiPjwvbGluZT48bGluZSB4MT0iMTUiIHkxPSIzIiB4Mj0iMTUiIHkyPSIyMSI+PC9saW5lPjxsaW5lIHgxPSIzIiB5MT0iOSIgeDI9IjIxIiB5Mj0iOSI+PC9saW5lPjxsaW5lIHgxPSIzIiB5MT0iMTUiIHgyPSIyMSIgeTI9IjE1Ij48L2xpbmU+PC9zdmc+",
-            sizes: "192x192",
-            type: "image/svg+xml"
-        }]
-    };
-    const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-    const link = document.createElement('link');
-    link.rel = 'manifest';
-    link.href = URL.createObjectURL(manifestBlob);
-    document.head.appendChild(link);
-
-    const swCode = `
-        const CACHE_NAME = 'ttt-v2';
-        self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
-        self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
-        self.addEventListener('fetch', e => {
-            e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
-        });
-    `;
-    const swBlob = new Blob([swCode], {type: 'application/javascript'});
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
-    }
-
-
-    /* --- Theme Management --- */
-    const htmlEl = document.documentElement;
-    const sunIcon = document.getElementById('icon-sun');
-    const moonIcon = document.getElementById('icon-moon');
-    const metaThemeColor = document.getElementById('meta-theme-color');
-
-    function applyTheme(theme) {
-        htmlEl.setAttribute('data-theme', theme);
-        localStorage.setItem('ttt-theme', theme);
-        if (theme === 'dark') {
-            sunIcon.classList.remove('hidden');
-            moonIcon.classList.add('hidden');
-            metaThemeColor.content = '#111111';
-        } else {
-            sunIcon.classList.add('hidden');
-            moonIcon.classList.remove('hidden');
-            metaThemeColor.content = '#F2F2F7';
-        }
-    }
-
-    function toggleTheme() {
-        playClick();
-        const currentTheme = htmlEl.getAttribute('data-theme');
-        applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
-    }
-
-    const savedTheme = localStorage.getItem('ttt-theme') || 'dark';
-    applyTheme(savedTheme);
-
-
-    /* --- App State & Navigation --- */
-    let gameMode = 'pve'; 
-    let botDifficulty = 'medium'; 
-    
-    function selectMode(mode) {
-        playClick();
-        gameMode = mode;
-        document.getElementById('mode-pve').classList.toggle('selected', mode === 'pve');
-        document.getElementById('mode-pvp').classList.toggle('selected', mode === 'pvp');
+    /**
+     * Application State & Config
+     */
+    const app = {
+        theme: 'light',
+        settings: { sound: true, anim: true },
+        mode: 'ai', // ai, pvp
+        diff: 'medium', // easy, medium, hard
         
-        const diffSection = document.getElementById('difficulty-section');
-        if (mode === 'pve') {
-            diffSection.classList.remove('hidden');
-            setTimeout(() => diffSection.style.opacity = 1, 10);
-        } else {
-            diffSection.style.opacity = 0;
-            setTimeout(() => diffSection.classList.add('hidden'), 300);
-        }
-    }
+        game: {
+            board: Array(9).fill(null),
+            currentPlayer: 'X',
+            isActive: false,
+            winPatterns: [
+                [0,1,2], [3,4,5], [6,7,8], // Rows
+                [0,3,6], [1,4,7], [2,5,8], // Cols
+                [0,4,8], [2,4,6]           // Diags
+            ]
+        },
 
-    function selectDifficulty(diff) {
-        playClick();
-        botDifficulty = diff;
-        ['easy', 'medium', 'hard'].forEach(d => {
-            document.getElementById(`diff-${d}`).classList.toggle('selected', d === diff);
-        });
-    }
+        init() {
+            this.setupPWA();
+            setTimeout(() => {
+                document.getElementById('splash').classList.remove('active');
+                this.navTo('menu');
+                document.getElementById('topBar').style.display = 'flex';
+            }, 2500);
 
-    function startGame() {
-        playClick();
-        document.getElementById('splash-screen').classList.remove('active');
-        document.getElementById('game-screen').classList.add('active');
-        initGame();
-    }
-
-    function goToMenu() {
-        playClick();
-        document.getElementById('game-screen').classList.remove('active');
-        document.getElementById('splash-screen').classList.add('active');
-    }
-
-
-    /* --- Game Logic --- */
-    let board = ['', '', '', '', '', '', '', '', ''];
-    let currentPlayer = 'X';
-    let gameActive = false;
-    const winCombos = [
-        [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-        [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
-        [0, 4, 8], [2, 4, 6]             // Diags
-    ];
-
-    const boardEl = document.getElementById('board');
-    const statusEl = document.getElementById('game-status');
-
-    function initGame() {
-        board = ['', '', '', '', '', '', '', '', ''];
-        currentPlayer = 'X';
-        gameActive = true;
-        renderBoard();
-        updateStatus();
-    }
-
-    function resetBoard(userInitiated = false) {
-        if(userInitiated) playClick();
-        initGame();
-    }
-
-    function renderBoard() {
-        boardEl.innerHTML = '';
-        board.forEach((cell, index) => {
-            const div = document.createElement('div');
-            div.className = `cell ${cell ? cell.toLowerCase() : ''}`;
-            div.innerText = cell;
-            div.onclick = () => handleCellClick(index);
-            boardEl.appendChild(div);
-        });
-    }
-
-    function updateStatus() {
-        if (!gameActive) return;
-        if (gameMode === 'pve') {
-            statusEl.innerText = currentPlayer === 'X' ? 'Your Turn' : 'Bot is thinking...';
-        } else {
-            statusEl.innerText = `Player ${currentPlayer}'s Turn`;
-        }
-    }
-
-    function handleCellClick(index) {
-        if (!gameActive || board[index] !== '') return;
-        
-        // Block player click if it's bot's turn
-        if (gameMode === 'pve' && currentPlayer === 'O') return;
-
-        makeMove(index, currentPlayer);
-
-        if (gameActive && gameMode === 'pve' && currentPlayer === 'O') {
-            updateStatus();
-            setTimeout(botMove, 500);
-        }
-    }
-
-    function makeMove(index, player) {
-        player === 'X' ? playPlaceX() : playPlaceO();
-        
-        board[index] = player;
-        const cell = boardEl.children[index];
-        cell.innerText = player;
-        cell.className = `cell ${player.toLowerCase()}`;
-        
-        checkResult();
-        if (gameActive) {
-            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
-            updateStatus();
-        }
-    }
-
-    function checkResult() {
-        let roundWon = false;
-        let winningCombo = null;
-
-        for (let i = 0; i < winCombos.length; i++) {
-            const [a, b, c] = winCombos[i];
-            if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-                roundWon = true;
-                winningCombo = [a, b, c];
-                break;
+            // Generate cells
+            const grid = document.getElementById('boardGrid');
+            for(let i=0; i<9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.onclick = () => this.handleCellClick(i);
+                grid.appendChild(cell);
             }
-        }
 
-        if (roundWon) {
-            gameActive = false;
-            highlightWin(winningCombo);
-            playWinSound();
-            showEndAlert(currentPlayer === 'X' ? (gameMode === 'pve' ? '🎉 You Win!' : '🎉 Player X Wins!') : (gameMode === 'pve' ? '🤖 Bot Wins!' : '🎉 Player O Wins!'));
-            return;
-        }
-
-        if (!board.includes('')) {
-            gameActive = false;
-            playDrawSound();
-            showEndAlert('⚖️ Game Draw!');
-        }
-    }
-
-    function highlightWin(combo) {
-        combo.forEach(idx => {
-            boardEl.children[idx].classList.add('win');
-        });
-    }
-
-    function showEndAlert(title) {
-        setTimeout(() => {
-            Swal.fire({
-                title: title,
-                background: 'var(--surface)',
-                color: 'var(--text)',
-                confirmButtonColor: 'var(--accent)',
-                confirmButtonText: 'Play Again',
-                customClass: {
-                    popup: 'apple-alert',
-                    title: 'apple-alert-title',
-                    confirmButton: 'apple-alert-btn btn-primary'
-                },
-                allowOutsideClick: false
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    playClick();
-                    resetBoard();
+            // Theme toggle event
+            document.getElementById('themeToggle').addEventListener('click', () => {
+                this.theme = this.theme === 'light' ? 'dark' : 'light';
+                document.body.setAttribute('data-theme', this.theme);
+                const icon = document.getElementById('themeIcon');
+                if (this.theme === 'dark') {
+                    icon.innerHTML = `<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>`;
+                    icon.style.transform = 'rotate(360deg)';
+                } else {
+                    icon.innerHTML = `<path d="M12 4V2M12 22v-2M4 12H2m20 0h-2m-2.05-6.95l-1.41-1.41M5.46 18.54l-1.41-1.41M18.54 18.54l-1.41 1.41M5.46 5.46l-1.41 1.41M12 17a5 5 0 100-10a5 5 0 000 10z" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>`;
+                    icon.style.transform = 'rotate(-360deg)';
                 }
             });
-        }, 400);
-    }
+        },
 
-    /* --- Bot AI Logic --- */
-    function botMove() {
-        if (!gameActive) return;
-        
-        let moveIndex;
-        if (botDifficulty === 'easy') {
-            moveIndex = getRandomMove();
-        } else if (botDifficulty === 'medium') {
-            moveIndex = Math.random() < 0.5 ? getBestMove() : getRandomMove();
-        } else {
-            moveIndex = getBestMove();
-        }
+        vibrate(pattern) {
+            if (this.settings.sound && navigator.vibrate) {
+                navigator.vibrate(pattern);
+            }
+        },
 
-        makeMove(moveIndex, 'O');
-    }
+        toggleSetting(type) {
+            this.settings[type] = !this.settings[type];
+            document.getElementById(`${type}Toggle`).classList.toggle('on', this.settings[type]);
+            this.vibrate(50);
+        },
 
-    function getRandomMove() {
-        const available = board.map((val, idx) => val === '' ? idx : null).filter(val => val !== null);
-        return available[Math.floor(Math.random() * available.length)];
-    }
+        navTo(target) {
+            this.vibrate(30);
+            document.querySelectorAll('.screen').forEach(el => {
+                if(el.id !== 'splash') {
+                    el.classList.remove('active');
+                    if(target !== 'menu' && el.id === 'menu') {
+                        el.classList.add('bg-blur');
+                    } else if (target === 'menu' && el.id === 'menu') {
+                        el.classList.remove('bg-blur');
+                    } else {
+                        el.classList.add('slide-up-hidden');
+                    }
+                }
+            });
+            const targetEl = document.getElementById(target);
+            targetEl.classList.remove('slide-up-hidden');
+            targetEl.classList.add('active');
 
-    function getBestMove() {
-        let bestScore = -Infinity;
-        let move;
-        
-        for (let i = 0; i < board.length; i++) {
-            if (board[i] === '') {
-                board[i] = 'O';
-                let score = minimax(board, 0, false);
-                board[i] = '';
-                if (score > bestScore) {
-                    bestScore = score;
-                    move = i;
+            if(target === 'game') this.resetGame();
+        },
+
+        selectMode(m) {
+            this.vibrate(30);
+            this.mode = m;
+            document.querySelectorAll('.mode-card').forEach(el => el.classList.remove('selected'));
+            document.getElementById(`mode-${m}`).classList.add('selected');
+            const diffSel = document.getElementById('diffSelector');
+            if(m === 'ai') diffSel.classList.add('visible');
+            else diffSel.classList.remove('visible');
+        },
+
+        selectDiff(d) {
+            this.vibrate(30);
+            this.diff = d;
+            document.querySelectorAll('.diff-btn').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+        },
+
+        startGame() {
+            this.vibrate(50);
+            this.navTo('game');
+            document.getElementById('gameTitle').innerText = this.mode === 'ai' ? 'AI vs You' : 'Player 1 vs 2';
+        },
+
+        resetGame() {
+            this.vibrate(50);
+            this.game.board.fill(null);
+            this.game.currentPlayer = 'X';
+            this.game.isActive = true;
+            
+            document.getElementById('turnIndicator').innerText = "X's Turn";
+            document.getElementById('turnIndicator').style.color = "var(--accent-color)";
+            document.getElementById('overlayMsg').classList.remove('show');
+            document.getElementById('gameControls').classList.remove('visible');
+            
+            // Clear cells
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => cell.innerHTML = '');
+
+            // Reset lines
+            document.getElementById('winLine').style.opacity = '0';
+            document.getElementById('winLine').style.width = '0';
+            
+            if(this.settings.anim) {
+                const linesV = document.querySelectorAll('.line-v');
+                const linesH = document.querySelectorAll('.line-h');
+                linesV.forEach(l => l.style.height = '0');
+                linesH.forEach(l => l.style.width = '0');
+                
+                setTimeout(() => {
+                    linesV.forEach(l => l.style.height = '100%');
+                    linesH.forEach(l => l.style.width = '100%');
+                }, 100);
+            } else {
+                document.querySelectorAll('.line-v').forEach(l => l.style.height = '100%');
+                document.querySelectorAll('.line-h').forEach(l => l.style.width = '100%');
+            }
+        },
+
+        handleCellClick(idx) {
+            if (!this.game.isActive || this.game.board[idx]) return;
+            
+            this.makeMove(idx, this.game.currentPlayer);
+
+            if (this.game.isActive && this.mode === 'ai' && this.game.currentPlayer === 'O') {
+                this.game.isActive = false; // Lock board for AI thinking
+                setTimeout(() => {
+                    this.game.isActive = true;
+                    this.makeAIMove();
+                }, 500);
+            }
+        },
+
+        makeMove(idx, player) {
+            this.game.board[idx] = player;
+            const cell = document.querySelectorAll('.cell')[idx];
+            
+            const template = document.getElementById(`svg-${player.toLowerCase()}`).content.cloneNode(true);
+            cell.appendChild(template);
+            this.vibrate([40]);
+
+            // Animate draw
+            if(this.settings.anim) {
+                setTimeout(() => {
+                    const paths = cell.querySelectorAll(`[class^="mark-"]`);
+                    paths.forEach(p => p.style.strokeDashoffset = '0');
+                }, 10);
+            } else {
+                const paths = cell.querySelectorAll(`[class^="mark-"]`);
+                paths.forEach(p => { p.style.transition = 'none'; p.style.strokeDashoffset = '0'; });
+            }
+
+            if(this.checkWin(player)) return;
+
+            if(!this.game.board.includes(null)) {
+                this.endGame('draw');
+                return;
+            }
+
+            this.game.currentPlayer = player === 'X' ? 'O' : 'X';
+            const turnInd = document.getElementById('turnIndicator');
+            turnInd.innerText = `${this.game.currentPlayer}'s Turn`;
+            turnInd.style.color = this.game.currentPlayer === 'X' ? 'var(--accent-color)' : 'var(--text-color)';
+        },
+
+        checkWin(player) {
+            for(let i=0; i<this.game.winPatterns.length; i++) {
+                const [a, b, c] = this.game.winPatterns[i];
+                if (this.game.board[a] === player && this.game.board[b] === player && this.game.board[c] === player) {
+                    this.drawWinLine(i);
+                    this.endGame(player);
+                    return true;
                 }
             }
-        }
-        return move;
-    }
+            return false;
+        },
 
-    function minimax(testBoard, depth, isMaximizing) {
-        let result = checkWinnerForMinimax();
-        if (result === 'O') return 10 - depth;
-        if (result === 'X') return -10 + depth;
-        if (result === 'tie') return 0;
+        drawWinLine(patternIdx) {
+            if(!this.settings.anim) return;
+            const winLine = document.getElementById('winLine');
+            const cellSize = document.querySelector('.cell').offsetWidth;
+            const offset = cellSize / 2;
+            
+            let top = 0, left = 0, angle = 0, length = cellSize * 3;
 
-        if (isMaximizing) {
+            if (patternIdx < 3) { // Rows
+                top = offset + (patternIdx * cellSize);
+                left = 0; angle = 0;
+            } else if (patternIdx < 6) { // Cols
+                left = offset + ((patternIdx - 3) * cellSize);
+                top = 0; angle = 90;
+            } else if (patternIdx === 6) { // Diag \
+                top = 0; left = 0; angle = 45; length = cellSize * 4.24;
+            } else { // Diag /
+                top = 0; left = cellSize * 3; angle = 135; length = cellSize * 4.24;
+            }
+
+            winLine.style.top = `${top}px`;
+            winLine.style.left = `${left}px`;
+            winLine.style.transform = `rotate(${angle}deg)`;
+            winLine.style.opacity = '1';
+            
+            setTimeout(() => winLine.style.width = `${length}px`, 50);
+        },
+
+        endGame(result) {
+            this.game.isActive = false;
+            this.vibrate([100, 50, 100]);
+            
+            const msg = document.getElementById('overlayMsg');
+            if (result === 'draw') msg.innerText = "It's a Draw";
+            else if (this.mode === 'ai' && result === 'X') msg.innerText = "You Win";
+            else if (this.mode === 'ai' && result === 'O') msg.innerText = "AI Wins";
+            else msg.innerText = `Player ${result} Wins`;
+
+            setTimeout(() => {
+                msg.classList.add('show');
+                document.getElementById('gameControls').classList.add('visible');
+            }, 600);
+        },
+
+        makeAIMove() {
+            let move;
+            if (this.diff === 'easy') {
+                const available = this.game.board.map((v, i) => v === null ? i : null).filter(v => v !== null);
+                move = available[Math.floor(Math.random() * available.length)];
+            } else if (this.diff === 'medium') {
+                move = this.getBestMove('O', false); // Sub-optimal sometimes
+                if (Math.random() > 0.6) {
+                    const available = this.game.board.map((v, i) => v === null ? i : null).filter(v => v !== null);
+                    move = available[Math.floor(Math.random() * available.length)];
+                }
+            } else {
+                move = this.getBestMove('O', true);
+            }
+            if(move !== undefined) this.makeMove(move, 'O');
+        },
+
+        getBestMove(player, optimal) {
             let bestScore = -Infinity;
-            for (let i = 0; i < testBoard.length; i++) {
-                if (testBoard[i] === '') {
-                    testBoard[i] = 'O';
-                    let score = minimax(testBoard, depth + 1, false);
-                    testBoard[i] = '';
-                    bestScore = Math.max(score, bestScore);
+            let move;
+            for(let i=0; i<9; i++) {
+                if(this.game.board[i] === null) {
+                    this.game.board[i] = player;
+                    let score = this.minimax(this.game.board, 0, false);
+                    this.game.board[i] = null;
+                    if(score > bestScore) {
+                        bestScore = score;
+                        move = i;
+                    }
                 }
             }
-            return bestScore;
-        } else {
-            let bestScore = Infinity;
-            for (let i = 0; i < testBoard.length; i++) {
-                if (testBoard[i] === '') {
-                    testBoard[i] = 'X';
-                    let score = minimax(testBoard, depth + 1, true);
-                    testBoard[i] = '';
-                    bestScore = Math.min(score, bestScore);
-                }
-            }
-            return bestScore;
-        }
-    }
+            return move;
+        },
 
-    function checkWinnerForMinimax() {
-        for (let i = 0; i < winCombos.length; i++) {
-            const [a, b, c] = winCombos[i];
-            if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-                return board[a];
+        minimax(board, depth, isMaximizing) {
+            const checkWinner = (b) => {
+                for(let [x,y,z] of this.game.winPatterns) {
+                    if(b[x] && b[x] === b[y] && b[x] === b[z]) return b[x];
+                }
+                return b.includes(null) ? null : 'tie';
+            };
+
+            const result = checkWinner(board);
+            if(result === 'O') return 10 - depth;
+            if(result === 'X') return depth - 10;
+            if(result === 'tie') return 0;
+
+            if(isMaximizing) {
+                let bestScore = -Infinity;
+                for(let i=0; i<9; i++) {
+                    if(board[i] === null) {
+                        board[i] = 'O';
+                        let score = this.minimax(board, depth+1, false);
+                        board[i] = null;
+                        bestScore = Math.max(score, bestScore);
+                    }
+                }
+                return bestScore;
+            } else {
+                let bestScore = Infinity;
+                for(let i=0; i<9; i++) {
+                    if(board[i] === null) {
+                        board[i] = 'X';
+                        let score = this.minimax(board, depth+1, true);
+                        board[i] = null;
+                        bestScore = Math.min(score, bestScore);
+                    }
+                }
+                return bestScore;
+            }
+        },
+
+        setupPWA() {
+            // Embedded Manifest
+            const manifest = {
+                "name": "TicToe by AnshuRajhans",
+                "short_name": "TicToe",
+                "display": "standalone",
+                "background_color": "#000000",
+                "theme_color": "#000000",
+                "orientation": "portrait",
+                "start_url": ".",
+                "icons": [{
+                    "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%23000'/%3E%3Ccircle cx='50' cy='50' r='30' stroke='%230A84FF' stroke-width='10' fill='none'/%3E%3C/svg%3E",
+                    "sizes": "192x192 512x512",
+                    "type": "image/svg+xml"
+                }]
+            };
+            const manifestStr = encodeURIComponent(JSON.stringify(manifest));
+            document.getElementById('manifest-link').setAttribute('href', `data:application/manifest+json;charset=utf-8,${manifestStr}`);
+
+            // Embedded Service Worker
+            if('serviceWorker' in navigator) {
+                const swCode = `
+                    self.addEventListener('install', e => self.skipWaiting());
+                    self.addEventListener('activate', e => self.clients.claim());
+                    self.addEventListener('fetch', e => {
+                        e.respondWith(
+                            caches.match(e.request).then(response => {
+                                return response || fetch(e.request).then(fetchRes => {
+                                    return caches.open('tictoe-cache-v1').then(cache => {
+                                        if (e.request.url.startsWith('http')) {
+                                            cache.put(e.request, fetchRes.clone());
+                                        }
+                                        return fetchRes;
+                                    });
+                                });
+                            }).catch(() => new Response('Offline'))
+                        );
+                    });
+                `;
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                navigator.serviceWorker.register(swUrl).catch(err => console.log('SW Registration failed', err));
             }
         }
-        if (!board.includes('')) return 'tie';
-        return null;
-    }
+    };
+
+    // Boot App
+    window.addEventListener('load', () => app.init());
 
 </script>
-
 </body>
 </html>

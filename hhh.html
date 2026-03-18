@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#111111" id="meta-theme-color">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Tic Tac Toe</title>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <style>
+        /* CSS Variables - Apple Matte Aesthetics */
+        :root {
+            /* Matte White Theme */
+            --bg-light: #F2F2F7;
+            --surface-light: #FFFFFF;
+            --border-light: #D1D1D6;
+            --text-light: #000000;
+            --text-sec-light: #6E6E73;
+            --accent-light: #007AFF;
+            --glow-light: rgba(0, 122, 255, 0.3);
+
+            /* Matte Dark Theme */
+            --bg-dark: #111111;
+            --surface-dark: #1C1C1E;
+            --border-dark: #2C2C2E;
+            --text-dark: #FFFFFF;
+            --text-sec-dark: #8E8E93;
+            --accent-dark: #0A84FF;
+            --glow-dark: rgba(10, 132, 255, 0.3);
+            
+            /* Default to Dark */
+            --bg: var(--bg-dark);
+            --surface: var(--surface-dark);
+            --border: var(--border-dark);
+            --text: var(--text-dark);
+            --text-sec: var(--text-sec-dark);
+            --accent: var(--accent-dark);
+            --glow: var(--glow-dark);
+        }
+
+        [data-theme="light"] {
+            --bg: var(--bg-light);
+            --surface: var(--surface-light);
+            --border: var(--border-light);
+            --text: var(--text-light);
+            --text-sec: var(--text-sec-light);
+            --accent: var(--accent-light);
+            --glow: var(--glow-light);
+        }
+
+        /* Global Reset & Base */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: background-color 0.4s ease, color 0.4s ease;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Full Screen Wrapper (No Container) */
+        #app-wrapper {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        /* Screens perfectly centered without borders */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            max-width: 500px; /* Keeps UI readable on large screens */
+            margin: 0 auto;
+            right: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 32px 24px;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            opacity: 0;
+            pointer-events: none;
+            transform: scale(0.98);
+        }
+
+        .screen.active {
+            opacity: 1;
+            pointer-events: all;
+            transform: scale(1);
+        }
+
+        /* Typography */
+        h1 {
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+        }
+
+        p.subtitle {
+            font-size: 16px;
+            color: var(--text-sec);
+            font-weight: 500;
+            margin-bottom: 32px;
+        }
+
+        /* Splash Screen Elements */
+        .splash-header {
+            text-align: center;
+            margin-top: 4vh;
+        }
+
+        .section-title {
+            font-size: 14px;
+            text-transform: uppercase;
+            color: var(--text-sec);
+            font-weight: 600;
+            letter-spacing: 1px;
+            margin-bottom: 16px;
+            margin-top: 32px;
+        }
+
+        /* Cards */
+        .card-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 2px solid var(--border);
+            border-radius: 20px;
+            padding: 24px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+        }
+
+        .card svg {
+            width: 36px;
+            height: 36px;
+            stroke: var(--text);
+            margin-bottom: 16px;
+            transition: stroke 0.3s ease;
+        }
+
+        .card h3 {
+            font-size: 17px;
+            font-weight: 600;
+        }
+
+        .card.selected {
+            border-color: var(--accent);
+            background: rgba(10, 132, 255, 0.05);
+        }
+
+        .card.selected svg {
+            stroke: var(--accent);
+        }
+
+        .card:active {
+            transform: scale(0.95);
+        }
+
+        /* Pills */
+        .pill-group {
+            display: flex;
+            gap: 8px;
+            background: var(--surface);
+            padding: 6px;
+            border-radius: 100px;
+            border: 1px solid var(--border);
+            transition: opacity 0.3s ease;
+        }
+
+        .pill {
+            flex: 1;
+            text-align: center;
+            padding: 14px 0;
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 100px;
+            cursor: pointer;
+            color: var(--text-sec);
+            transition: all 0.3s ease;
+        }
+
+        .pill.selected {
+            background: var(--accent);
+            color: #FFF;
+            box-shadow: 0 4px 12px var(--glow);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            margin-top: auto;
+            margin-bottom: 2vh;
+            background: var(--accent);
+            color: #FFF;
+            border: none;
+            border-radius: 18px;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s ease;
+            box-shadow: 0 6px 20px var(--glow);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.96);
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background: var(--surface);
+            color: var(--text);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
+            font-size: 17px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 12px;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-secondary:active {
+            transform: scale(0.96);
+            background: var(--border);
+        }
+
+        /* Top Bar */
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4vh;
+            margin-top: 2vh;
+        }
+
+        .top-bar h2 {
+            font-size: 22px;
+            font-weight: 700;
+        }
+
+        .theme-toggle {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle svg {
+            width: 22px;
+            height: 22px;
+            stroke: var(--text);
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:active {
+            transform: scale(0.9);
+        }
+
+        /* Game Board */
+        .board-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .game-status {
+            text-align: center;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 32px;
+            color: var(--accent);
+            height: 24px;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            aspect-ratio: 1;
+            width: 100%;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        .cell {
+            background: var(--surface);
+            border: 2px solid var(--border);
+            border-radius: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 56px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+
+        .cell.x {
+            color: var(--text);
+        }
+
+        .cell.o {
+            color: var(--accent);
+        }
+
+        .cell:active {
+            transform: scale(0.92);
+        }
+
+        .cell.win {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #FFF !important;
+            box-shadow: 0 0 24px var(--glow);
+            transform: scale(1.05);
+            z-index: 2;
+        }
+
+        /* SweetAlert Apple Style Overrides */
+        .apple-alert {
+            border-radius: 28px !important;
+            background: var(--surface) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: 0 24px 48px rgba(0,0,0,0.2) !important;
+        }
+        .apple-alert-title {
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 700 !important;
+            font-size: 26px !important;
+        }
+        .apple-alert-btn {
+            border-radius: 14px !important;
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 600 !important;
+            padding: 14px 28px !important;
+        }
+
+        /* Hide elements dynamically */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-wrapper">
+    
+    <!-- Splash / Setup Screen -->
+    <div id="splash-screen" class="screen active">
+        <div class="splash-header">
+            <h1>Tic Tac Toe</h1>
+            <p class="subtitle">Minimal Strategy Game</p>
+        </div>
+
+        <div class="section-title">Select Mode</div>
+        <div class="card-grid">
+            <div class="card selected" id="mode-pve" onclick="selectMode('pve')">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line></svg>
+                <h3>Bot vs You</h3>
+            </div>
+            <div class="card" id="mode-pvp" onclick="selectMode('pvp')">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <h3>1 vs 1 Player</h3>
+            </div>
+        </div>
+
+        <div id="difficulty-section">
+            <div class="section-title">Difficulty</div>
+            <div class="pill-group">
+                <div class="pill" id="diff-easy" onclick="selectDifficulty('easy')">Easy</div>
+                <div class="pill selected" id="diff-medium" onclick="selectDifficulty('medium')">Medium</div>
+                <div class="pill" id="diff-hard" onclick="selectDifficulty('hard')">Hard</div>
+            </div>
+        </div>
+
+        <button class="btn-primary" onclick="startGame()">Start Game</button>
+    </div>
+
+    <!-- Main Game Screen -->
+    <div id="game-screen" class="screen">
+        <div class="top-bar">
+            <h2>Tic Tac Toe</h2>
+            <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle Theme">
+                <!-- Sun Icon -->
+                <svg id="icon-sun" class="hidden" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                <!-- Moon Icon -->
+                <svg id="icon-moon" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+            </button>
+        </div>
+
+        <div class="board-wrapper">
+            <div class="game-status" id="game-status">Your Turn</div>
+            <div class="board" id="board">
+                <!-- Cells generated by JS -->
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn-secondary" onclick="resetBoard(true)">Restart Game</button>
+            <button class="btn-secondary" onclick="goToMenu()" style="color: var(--accent); border-color: transparent;">Change Mode</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    /* --- Premium Sound System (Web Audio API) --- */
+    let audioCtx;
+
+    // Initialize audio context safely on first user interaction
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+    document.addEventListener('pointerdown', initAudio, { once: true });
+
+    function playTone(freq, type, duration, volume) {
+        if (!audioCtx) return;
+        try {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch (e) { console.warn("Audio skipped"); }
+    }
+
+    // Sound Presets
+    function playClick() { playTone(450, 'sine', 0.08, 0.05); }
+    function playPlaceX() { playTone(600, 'sine', 0.1, 0.08); }
+    function playPlaceO() { playTone(800, 'sine', 0.1, 0.08); }
+    function playWinSound() {
+        playTone(523.25, 'triangle', 0.15, 0.1); // C5
+        setTimeout(() => playTone(659.25, 'triangle', 0.15, 0.1), 100); // E5
+        setTimeout(() => playTone(783.99, 'triangle', 0.15, 0.1), 200); // G5
+        setTimeout(() => playTone(1046.50, 'triangle', 0.4, 0.15), 300); // C6
+    }
+    function playDrawSound() {
+        playTone(300, 'sawtooth', 0.2, 0.05);
+        setTimeout(() => playTone(250, 'sawtooth', 0.3, 0.05), 150);
+    }
+
+
+    /* --- PWA Setup --- */
+    const manifest = {
+        name: "Tic Tac Toe",
+        short_name: "TTT",
+        start_url: ".",
+        display: "standalone",
+        background_color: "#111111",
+        theme_color: "#0A84FF",
+        icons: [{
+            src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMEE4NEZGIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMyIgeT0iMyIgd2lkdGg9IjE4IiBoZWlnaHQ9IjE4IiByeD0iMiIgcnk9IjIiPjwvcmVjdD48bGluZSB4MT0iOSIgeTE9IjMiIHgyPSI5IiB5Mj0iMjEiPjwvbGluZT48bGluZSB4MT0iMTUiIHkxPSIzIiB4Mj0iMTUiIHkyPSIyMSI+PC9saW5lPjxsaW5lIHgxPSIzIiB5MT0iOSIgeDI9IjIxIiB5Mj0iOSI+PC9saW5lPjxsaW5lIHgxPSIzIiB5MT0iMTUiIHgyPSIyMSIgeTI9IjE1Ij48L2xpbmU+PC9zdmc+",
+            sizes: "192x192",
+            type: "image/svg+xml"
+        }]
+    };
+    const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = URL.createObjectURL(manifestBlob);
+    document.head.appendChild(link);
+
+    const swCode = `
+        const CACHE_NAME = 'ttt-v2';
+        self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
+        self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+        self.addEventListener('fetch', e => {
+            e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+        });
+    `;
+    const swBlob = new Blob([swCode], {type: 'application/javascript'});
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register(URL.createObjectURL(swBlob)).catch(() => {});
+    }
+
+
+    /* --- Theme Management --- */
+    const htmlEl = document.documentElement;
+    const sunIcon = document.getElementById('icon-sun');
+    const moonIcon = document.getElementById('icon-moon');
+    const metaThemeColor = document.getElementById('meta-theme-color');
+
+    function applyTheme(theme) {
+        htmlEl.setAttribute('data-theme', theme);
+        localStorage.setItem('ttt-theme', theme);
+        if (theme === 'dark') {
+            sunIcon.classList.remove('hidden');
+            moonIcon.classList.add('hidden');
+            metaThemeColor.content = '#111111';
+        } else {
+            sunIcon.classList.add('hidden');
+            moonIcon.classList.remove('hidden');
+            metaThemeColor.content = '#F2F2F7';
+        }
+    }
+
+    function toggleTheme() {
+        playClick();
+        const currentTheme = htmlEl.getAttribute('data-theme');
+        applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+    }
+
+    const savedTheme = localStorage.getItem('ttt-theme') || 'dark';
+    applyTheme(savedTheme);
+
+
+    /* --- App State & Navigation --- */
+    let gameMode = 'pve'; 
+    let botDifficulty = 'medium'; 
+    
+    function selectMode(mode) {
+        playClick();
+        gameMode = mode;
+        document.getElementById('mode-pve').classList.toggle('selected', mode === 'pve');
+        document.getElementById('mode-pvp').classList.toggle('selected', mode === 'pvp');
+        
+        const diffSection = document.getElementById('difficulty-section');
+        if (mode === 'pve') {
+            diffSection.classList.remove('hidden');
+            setTimeout(() => diffSection.style.opacity = 1, 10);
+        } else {
+            diffSection.style.opacity = 0;
+            setTimeout(() => diffSection.classList.add('hidden'), 300);
+        }
+    }
+
+    function selectDifficulty(diff) {
+        playClick();
+        botDifficulty = diff;
+        ['easy', 'medium', 'hard'].forEach(d => {
+            document.getElementById(`diff-${d}`).classList.toggle('selected', d === diff);
+        });
+    }
+
+    function startGame() {
+        playClick();
+        document.getElementById('splash-screen').classList.remove('active');
+        document.getElementById('game-screen').classList.add('active');
+        initGame();
+    }
+
+    function goToMenu() {
+        playClick();
+        document.getElementById('game-screen').classList.remove('active');
+        document.getElementById('splash-screen').classList.add('active');
+    }
+
+
+    /* --- Game Logic --- */
+    let board = ['', '', '', '', '', '', '', '', ''];
+    let currentPlayer = 'X';
+    let gameActive = false;
+    const winCombos = [
+        [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+        [0, 3, 6], [1, 4, 7], [2, 5, 8], // Cols
+        [0, 4, 8], [2, 4, 6]             // Diags
+    ];
+
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('game-status');
+
+    function initGame() {
+        board = ['', '', '', '', '', '', '', '', ''];
+        currentPlayer = 'X';
+        gameActive = true;
+        renderBoard();
+        updateStatus();
+    }
+
+    function resetBoard(userInitiated = false) {
+        if(userInitiated) playClick();
+        initGame();
+    }
+
+    function renderBoard() {
+        boardEl.innerHTML = '';
+        board.forEach((cell, index) => {
+            const div = document.createElement('div');
+            div.className = `cell ${cell ? cell.toLowerCase() : ''}`;
+            div.innerText = cell;
+            div.onclick = () => handleCellClick(index);
+            boardEl.appendChild(div);
+        });
+    }
+
+    function updateStatus() {
+        if (!gameActive) return;
+        if (gameMode === 'pve') {
+            statusEl.innerText = currentPlayer === 'X' ? 'Your Turn' : 'Bot is thinking...';
+        } else {
+            statusEl.innerText = `Player ${currentPlayer}'s Turn`;
+        }
+    }
+
+    function handleCellClick(index) {
+        if (!gameActive || board[index] !== '') return;
+        
+        // Block player click if it's bot's turn
+        if (gameMode === 'pve' && currentPlayer === 'O') return;
+
+        makeMove(index, currentPlayer);
+
+        if (gameActive && gameMode === 'pve' && currentPlayer === 'O') {
+            updateStatus();
+            setTimeout(botMove, 500);
+        }
+    }
+
+    function makeMove(index, player) {
+        player === 'X' ? playPlaceX() : playPlaceO();
+        
+        board[index] = player;
+        const cell = boardEl.children[index];
+        cell.innerText = player;
+        cell.className = `cell ${player.toLowerCase()}`;
+        
+        checkResult();
+        if (gameActive) {
+            currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+            updateStatus();
+        }
+    }
+
+    function checkResult() {
+        let roundWon = false;
+        let winningCombo = null;
+
+        for (let i = 0; i < winCombos.length; i++) {
+            const [a, b, c] = winCombos[i];
+            if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                roundWon = true;
+                winningCombo = [a, b, c];
+                break;
+            }
+        }
+
+        if (roundWon) {
+            gameActive = false;
+            highlightWin(winningCombo);
+            playWinSound();
+            showEndAlert(currentPlayer === 'X' ? (gameMode === 'pve' ? '🎉 You Win!' : '🎉 Player X Wins!') : (gameMode === 'pve' ? '🤖 Bot Wins!' : '🎉 Player O Wins!'));
+            return;
+        }
+
+        if (!board.includes('')) {
+            gameActive = false;
+            playDrawSound();
+            showEndAlert('⚖️ Game Draw!');
+        }
+    }
+
+    function highlightWin(combo) {
+        combo.forEach(idx => {
+            boardEl.children[idx].classList.add('win');
+        });
+    }
+
+    function showEndAlert(title) {
+        setTimeout(() => {
+            Swal.fire({
+                title: title,
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                confirmButtonColor: 'var(--accent)',
+                confirmButtonText: 'Play Again',
+                customClass: {
+                    popup: 'apple-alert',
+                    title: 'apple-alert-title',
+                    confirmButton: 'apple-alert-btn btn-primary'
+                },
+                allowOutsideClick: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    playClick();
+                    resetBoard();
+                }
+            });
+        }, 400);
+    }
+
+    /* --- Bot AI Logic --- */
+    function botMove() {
+        if (!gameActive) return;
+        
+        let moveIndex;
+        if (botDifficulty === 'easy') {
+            moveIndex = getRandomMove();
+        } else if (botDifficulty === 'medium') {
+            moveIndex = Math.random() < 0.5 ? getBestMove() : getRandomMove();
+        } else {
+            moveIndex = getBestMove();
+        }
+
+        makeMove(moveIndex, 'O');
+    }
+
+    function getRandomMove() {
+        const available = board.map((val, idx) => val === '' ? idx : null).filter(val => val !== null);
+        return available[Math.floor(Math.random() * available.length)];
+    }
+
+    function getBestMove() {
+        let bestScore = -Infinity;
+        let move;
+        
+        for (let i = 0; i < board.length; i++) {
+            if (board[i] === '') {
+                board[i] = 'O';
+                let score = minimax(board, 0, false);
+                board[i] = '';
+                if (score > bestScore) {
+                    bestScore = score;
+                    move = i;
+                }
+            }
+        }
+        return move;
+    }
+
+    function minimax(testBoard, depth, isMaximizing) {
+        let result = checkWinnerForMinimax();
+        if (result === 'O') return 10 - depth;
+        if (result === 'X') return -10 + depth;
+        if (result === 'tie') return 0;
+
+        if (isMaximizing) {
+            let bestScore = -Infinity;
+            for (let i = 0; i < testBoard.length; i++) {
+                if (testBoard[i] === '') {
+                    testBoard[i] = 'O';
+                    let score = minimax(testBoard, depth + 1, false);
+                    testBoard[i] = '';
+                    bestScore = Math.max(score, bestScore);
+                }
+            }
+            return bestScore;
+        } else {
+            let bestScore = Infinity;
+            for (let i = 0; i < testBoard.length; i++) {
+                if (testBoard[i] === '') {
+                    testBoard[i] = 'X';
+                    let score = minimax(testBoard, depth + 1, true);
+                    testBoard[i] = '';
+                    bestScore = Math.min(score, bestScore);
+                }
+            }
+            return bestScore;
+        }
+    }
+
+    function checkWinnerForMinimax() {
+        for (let i = 0; i < winCombos.length; i++) {
+            const [a, b, c] = winCombos[i];
+            if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                return board[a];
+            }
+        }
+        if (!board.includes('')) return 'tie';
+        return null;
+    }
+
+</script>
+
+</body>
+</html>
