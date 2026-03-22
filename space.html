@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AnshuRajhans Epic 3D Space Drive</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <style>
+        :root { --neon-blue: #00f3ff; --neon-purple: #b026ff; --glass-bg: rgba(10, 10, 20, 0.7); --glass-border: rgba(255, 255, 255, 0.15); }
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; -webkit-user-select: none; touch-action: none; }
+        body, html { width: 100vw; height: 100vh; overflow: hidden; background-color: #000; font-family: 'Poppins', sans-serif; color: white; }
+        canvas { display: block; width: 100%; height: 100%; position: absolute; top: 0; left: 0; z-index: 1; }
+
+        /* UI Overlays */
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; pointer-events: none; }
+        .header-title { position: absolute; top: 20px; font-family: 'Orbitron', sans-serif; font-size: 3.5rem; font-weight: 900; background: linear-gradient(90deg, var(--neon-blue), var(--neon-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 0 30px rgba(0, 243, 255, 0.5); pointer-events: auto; }
+        .glass-card { background: var(--glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: 20px; padding: 35px 60px; text-align: center; pointer-events: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8), inset 0 0 20px rgba(0,243,255,0.1); display: flex; flex-direction: column; gap: 15px; }
+        .score-display { font-size: 1.2rem; color: #aaa; text-transform: uppercase; letter-spacing: 2px;}
+        .score-display span { font-size: 3rem; font-weight: 900; color: #fff; font-family: 'Orbitron', sans-serif; text-shadow: 0 0 15px rgba(255,255,255,0.5); }
+        
+        button.menu-btn { background: rgba(0,0,0,0.6); border: 2px solid var(--neon-blue); color: #fff; padding: 15px 30px; font-family: 'Orbitron', sans-serif; font-size: 1.2rem; font-weight: bold; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 2px;}
+        button.menu-btn:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 25px var(--neon-blue); transform: scale(1.05); }
+        .btn-color { border-color: var(--neon-purple) !important; }
+        .btn-color:hover { background: var(--neon-purple) !important; box-shadow: 0 0 25px var(--neon-purple) !important; }
+
+        /* HUD & Controls */
+        #hud { display: none; position: absolute; top: 0; left: 0; width: 100%; padding: 20px 40px; justify-content: space-between; align-items: flex-start; font-family: 'Orbitron', sans-serif; font-size: 1.5rem; z-index: 10; pointer-events: none; }
+        .hud-box { background: var(--glass-bg); padding: 10px 20px; border-radius: 12px; border: 1px solid var(--glass-border); text-shadow: 0 0 10px rgba(255,255,255,0.3); backdrop-filter: blur(5px); box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+
+        #on-screen-controls { display: none; position: absolute; bottom: 40px; left: 0; width: 100%; padding: 0 60px; justify-content: space-between; align-items: center; z-index: 10; pointer-events: none; }
+        .control-group { display: flex; gap: 20px; pointer-events: auto; }
+        .game-btn { background: rgba(10, 10, 20, 0.85); border: 2px solid var(--neon-blue); border-radius: 50%; width: 90px; height: 90px; font-size: 3rem; color: white; display: flex; justify-content: center; align-items: center; cursor: pointer; backdrop-filter: blur(10px); box-shadow: 0 0 25px rgba(0, 243, 255, 0.5); transition: transform 0.1s, box-shadow 0.1s; }
+        .game-btn:active { transform: scale(0.85); box-shadow: 0 0 40px rgba(0, 243, 255, 1); background: rgba(0, 243, 255, 0.3); }
+        #btn-cam { border-color: var(--neon-purple); box-shadow: 0 0 20px rgba(176, 38, 255, 0.5); width: 70px; height: 70px; font-size: 2rem; pointer-events: auto; }
+        #btn-cam:active { box-shadow: 0 0 35px rgba(176, 38, 255, 1); background: rgba(176, 38, 255, 0.3); }
+
+        #portrait-warning { display: none; position: absolute; top:0; left:0; width:100%; height:100%; background: #000; z-index: 100; color: white; justify-content: center; align-items: center; font-family: 'Orbitron', sans-serif; text-align: center; font-size: 1.8rem; padding: 20px; }
+        @media screen and (orientation: portrait) { #portrait-warning.active { display: flex; } }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="hud">
+        <div class="hud-box" style="color: var(--neon-blue);">SCORE: <span id="ui-score">0</span></div>
+        <button class="game-btn" id="btn-cam" title="Change Camera Angle">🎥</button>
+        <div class="hud-box" style="color: var(--neon-purple);">TIME: <span id="ui-time">0</span>s</div>
+    </div>
+
+    <div id="on-screen-controls">
+        <div class="control-group"><div class="game-btn" id="btn-left">⬅️</div></div>
+        <div class="control-group"><div class="game-btn" id="btn-right">➡️</div></div>
+    </div>
+
+    <div class="ui-layer" id="splash-screen">
+        <div class="header-title">AnshuRajhans</div>
+        <div class="glass-card splash-card">
+            <div class="score-display">HIGH SCORE<br><span id="splash-highscore">0</span></div>
+            <button class="menu-btn" id="btn-start">🚀 Start Engine</button>
+            <button class="menu-btn btn-color" id="btn-color">🎨 Paint Garage</button>
+        </div>
+    </div>
+
+    <div class="ui-layer hidden" id="gameover-screen">
+        <div class="header-title" style="color: #ff0055; text-shadow: 0 0 30px #ff0055;">WRECKED!</div>
+        <div class="glass-card gameover-card">
+            <div class="score-display">FINAL SCORE<br><span id="go-score">0</span></div>
+            <div class="score-display">HIGH SCORE<br><span id="go-highscore">0</span></div>
+            <button class="menu-btn" id="btn-restart">🔄 Race Again</button>
+            <button class="menu-btn btn-color" id="btn-menu">🏠 Main Menu</button>
+        </div>
+    </div>
+
+    <div id="portrait-warning">Rotate device to Landscape mode for the best experience! 🏎️💨</div>
+
+<script>
+/** --------------------------------------------------------------------------
+ *  AUDIO ENGINE
+ *  -------------------------------------------------------------------------- */
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx, bgmOsc1, bgmOsc2, bgmGain;
+
+function initAudio() { if(!audioCtx) audioCtx = new AudioContext(); if(audioCtx.state === 'suspended') audioCtx.resume(); }
+
+function playBGM() {
+    if(bgmGain) return;
+    bgmGain = audioCtx.createGain(); bgmGain.gain.value = 0.15; bgmGain.connect(audioCtx.destination);
+    bgmOsc1 = audioCtx.createOscillator(); bgmOsc1.type = 'sawtooth'; bgmOsc1.frequency.value = 45;
+    bgmOsc2 = audioCtx.createOscillator(); bgmOsc2.type = 'square'; bgmOsc2.frequency.value = 46;
+    
+    // Lowpass filter for deep synthwave bass
+    const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = 400;
+    bgmOsc1.connect(filter); bgmOsc2.connect(filter); filter.connect(bgmGain);
+    bgmOsc1.start(); bgmOsc2.start();
+}
+
+function stopBGM() {
+    if(bgmGain) {
+        bgmGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.5);
+        setTimeout(() => { if(bgmOsc1) bgmOsc1.stop(); if(bgmOsc2) bgmOsc2.stop(); bgmOsc1 = bgmOsc2 = bgmGain = null; }, 600);
+    }
+}
+
+function playCoinSound() {
+    if(!audioCtx) return;
+    const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+    osc.type = 'sine'; osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.frequency.setValueAtTime(1200, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(2000, audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(0.4, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+}
+
+function playCrashSound() {
+    if(!audioCtx) return;
+    const bufferSize = audioCtx.sampleRate * 0.5; const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+    const data = buffer.getChannelData(0); for(let i=0; i<bufferSize; i++) data[i] = Math.random() * 2 - 1;
+    const noise = audioCtx.createBufferSource(); noise.buffer = buffer;
+    const filter = audioCtx.createBiquadFilter(); filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(800, audioCtx.currentTime); filter.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.6);
+    const gain = audioCtx.createGain(); gain.gain.setValueAtTime(0.8, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+    noise.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination); noise.start();
+}
+
+/** --------------------------------------------------------------------------
+ *  EMOJI TEXTURE GENERATOR
+ *  -------------------------------------------------------------------------- */
+function createEmojiTexture(emoji, size=512) {
+    const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.font = `${size * 0.8}px "Apple Color Emoji", "Segoe UI Emoji", Arial, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(255,255,255,1)'; ctx.shadowBlur = 30; // Intense glow
+    ctx.fillText(emoji, size/2, size/2 + size*0.08);
+    const tex = new THREE.CanvasTexture(canvas); tex.needsUpdate = true; return tex;
+}
+
+/** --------------------------------------------------------------------------
+ *  GAME VARIABLES
+ *  -------------------------------------------------------------------------- */
+let scene, camera, renderer, clock, shadowLight;
+let playerCar, carBodyMat, wheels = [];
+let roadTex, roadMesh;
+let gameState = 'MENU';
+let score = 0, time = 0, distanceTravelled = 0;
+let highScore = localStorage.getItem('spaceCarHighScore') || 0;
+let gameSpeed = 50;
+let targetLane = 0;
+const LANE_WIDTH = 5; // Wider lanes
+
+// 3 Cameras
+let camIndex = 0;
+const camAngles = [
+    { offset: new THREE.Vector3(0, 6, 18), lookAtY: 1, lookAtZ: -30 },  // 3rd Person
+    { offset: new THREE.Vector3(0, 30, 5), lookAtY: 0, lookAtZ: -20 },  // Drone / Top Down
+    { offset: new THREE.Vector3(0, 2.5, -1), lookAtY: 2, lookAtZ: -50 } // Bumper
+];
+let currentLookAt = new THREE.Vector3(0,0,0);
+
+const carColors = [0x00f3ff, 0xff003c, 0xb026ff, 0x00ff00, 0xffd700];
+let colorIndex = 0;
+
+const coins = []; const enemies = []; const planets = []; const bgStars = []; const arches = [];
+const planetEmojis = ['🌍', '🪐', '☄️', '👾', '🌕', '🌞', '👽', '🚀', '🌌', '🌑'];
+
+const uiScore = document.getElementById('ui-score'); const uiTime = document.getElementById('ui-time');
+document.getElementById('splash-highscore').innerText = Math.floor(highScore);
+
+/** --------------------------------------------------------------------------
+ *  THREE.JS SETUP (SHADOWS & LIGHTING)
+ *  -------------------------------------------------------------------------- */
+function initThree() {
+    const canvas = document.getElementById('gameCanvas');
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); 
+    
+    // Enable Real 3D Shadows
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x020005); // Deep space purple-black
+    scene.fog = new THREE.FogExp2(0x020005, 0.0015); // Rich deep fog
+
+    camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 3000);
+    
+    const ambientLight = new THREE.AmbientLight(0x222244, 0.8); scene.add(ambientLight);
+    
+    // Dynamic Shadow Casting Light (Moves with player)
+    shadowLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    shadowLight.position.set(20, 50, 20);
+    shadowLight.castShadow = true;
+    shadowLight.shadow.camera.left = -30; shadowLight.shadow.camera.right = 30;
+    shadowLight.shadow.camera.top = 50; shadowLight.shadow.camera.bottom = -50;
+    shadowLight.shadow.camera.near = 0.5; shadowLight.shadow.camera.far = 150;
+    shadowLight.shadow.mapSize.width = 1024; shadowLight.shadow.mapSize.height = 1024;
+    scene.add(shadowLight);
+
+    createRoad();
+    playerCar = createCarMesh(carColors[colorIndex], true);
+    scene.add(playerCar);
+    
+    createEnvironment();
+    initPools();
+
+    gsap.fromTo('.splash-card', {y: 60, opacity: 0}, {y: 0, opacity: 1, duration: 1, ease: "back.out(1.2)"});
+    gsap.fromTo('.header-title', {scale: 0.5, opacity: 0}, {scale: 1, opacity: 1, duration: 1.5, ease: "elastic.out"});
+
+    window.addEventListener('resize', onWindowResize, false);
+    setupControls();
+    
+    clock = new THREE.Clock();
+    animate();
+}
+
+/** --------------------------------------------------------------------------
+ *  MODELS (CARS, BRIDGES, ARCHES)
+ *  -------------------------------------------------------------------------- */
+function createCarMesh(colorHex, isPlayer = false) {
+    const group = new THREE.Group();
+
+    const paintMat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.3, metalness: 0.8 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.0, metalness: 1.0 });
+    const lightMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2 });
+    const tailMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 2 });
+
+    // Chassis Base
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.6, 5.0), paintMat);
+    chassis.position.y = 0.6; chassis.castShadow = true; chassis.receiveShadow = true; group.add(chassis);
+
+    // Cabin
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 2.5), glassMat);
+    cabin.position.set(0, 1.25, -0.2); cabin.castShadow = true; group.add(cabin);
+
+    // Spoiler (Extra 3D detail)
+    const spoilerPillar1 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.2), darkMat); spoilerPillar1.position.set(-0.8, 1.0, 2.2); spoilerPillar1.castShadow=true; group.add(spoilerPillar1);
+    const spoilerPillar2 = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.4, 0.2), darkMat); spoilerPillar2.position.set(0.8, 1.0, 2.2); spoilerPillar2.castShadow=true; group.add(spoilerPillar2);
+    const spoilerTop = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.1, 0.5), paintMat); spoilerTop.position.set(0, 1.2, 2.3); spoilerTop.castShadow=true; group.add(spoilerTop);
+
+    // Lights
+    const hl1 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.1), lightMat); hl1.position.set(-0.8, 0.7, -2.51); group.add(hl1);
+    const hl2 = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.2, 0.1), lightMat); hl2.position.set(0.8, 0.7, -2.51); group.add(hl2);
+    const tl1 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 0.1), tailMat); tl1.position.set(-0.8, 0.7, 2.51); group.add(tl1);
+    const tl2 = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.2, 0.1), tailMat); tl2.position.set(0.8, 0.7, 2.51); group.add(tl2);
+
+    // Thick Wheels
+    const wheelGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.6, 24);
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa, metalness: 0.9, roughness: 0.2 });
+    const wheelPositions = [ [-1.3, 0.55, 1.6], [1.3, 0.55, 1.6], [-1.3, 0.55, -1.5], [1.3, 0.55, -1.5] ];
+    
+    wheelPositions.forEach(pos => {
+        const wGroup = new THREE.Group();
+        const tire = new THREE.Mesh(wheelGeo, darkMat); tire.castShadow=true;
+        const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.62, 12), rimMat);
+        tire.rotation.z = Math.PI / 2; rim.rotation.z = Math.PI / 2;
+        wGroup.add(tire); wGroup.add(rim);
+        wGroup.position.set(...pos);
+        group.add(wGroup);
+        if(isPlayer) wheels.push(wGroup); 
+    });
+
+    if(isPlayer) {
+        carBodyMat = paintMat; 
+        // Underglow Neon
+        const underGlow = new THREE.PointLight(colorHex, 2, 8);
+        underGlow.position.set(0, 0.2, 0); group.add(underGlow);
+        // Headlight Beams
+        const spotLight = new THREE.SpotLight(0xffffff, 3, 100, Math.PI/6, 0.5, 1);
+        spotLight.position.set(0, 1, -2); spotLight.target.position.set(0, 0, -40);
+        spotLight.castShadow = true;
+        group.add(spotLight); group.add(spotLight.target);
+    }
+    return group;
+}
+
+function createRoad() {
+    // Advanced Road Texture
+    const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0f0f15'; ctx.fillRect(0, 0, 512, 1024); // Dark asphalt
+    
+    // Glowing Grid lines
+    ctx.strokeStyle = 'rgba(0, 243, 255, 0.2)'; ctx.lineWidth = 4;
+    for(let i=0; i<512; i+=64) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 1024); ctx.stroke(); }
+    for(let i=0; i<1024; i+=64) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(512, i); ctx.stroke(); }
+
+    // Bright Dashed Lane Dividers
+    ctx.fillStyle = '#ffffff';
+    for(let y=0; y<1024; y+=128) {
+        ctx.shadowColor = '#00f3ff'; ctx.shadowBlur = 10;
+        ctx.fillRect(165, y, 12, 70); ctx.fillRect(335, y, 12, 70);
+        ctx.shadowBlur = 0;
+    }
+
+    roadTex = new THREE.CanvasTexture(canvas);
+    roadTex.wrapS = THREE.RepeatWrapping; roadTex.wrapT = THREE.RepeatWrapping; roadTex.repeat.set(1, 40);
+
+    // Thick 3D Bridge structure
+    const roadGeo = new THREE.BoxGeometry(20, 2, 4000);
+    const roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.6, metalness: 0.2 });
+    roadMesh = new THREE.Mesh(roadGeo, roadMat);
+    roadMesh.position.set(0, -1, -1500); 
+    roadMesh.receiveShadow = true; // Crucial for 3D look
+    scene.add(roadMesh);
+
+    // Neon Side Bumpers
+    const railMatL = new THREE.MeshStandardMaterial({ color: 0x00f3ff, emissive: 0x00f3ff, emissiveIntensity: 1.5 });
+    const leftRail = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.5, 4000), railMatL);
+    leftRail.position.set(-10.4, 0.5, -1500); scene.add(leftRail);
+
+    const railMatR = new THREE.MeshStandardMaterial({ color: 0xb026ff, emissive: 0xb026ff, emissiveIntensity: 1.5 });
+    const rightRail = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.5, 4000), railMatR);
+    rightRail.position.set(10.4, 0.5, -1500); scene.add(rightRail);
+}
+
+function createEnvironment() {
+    const createStarSystem = (emoji, count, size, spreadX, spreadY, spreadZ) => {
+        const tex = createEmojiTexture(emoji, 64);
+        const geo = new THREE.BufferGeometry();
+        const pos = new Float32Array(count * 3);
+        for(let i=0; i<count*3; i+=3) {
+            pos[i] = (Math.random() - 0.5) * spreadX;
+            pos[i+1] = Math.random() * spreadY + 50; 
+            pos[i+2] = (Math.random() * -spreadZ) + 200;
+        }
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const mat = new THREE.PointsMaterial({ map: tex, size: size, transparent: true, depthWrite: false });
+        const points = new THREE.Points(geo, mat);
+        scene.add(points); bgStars.push(points);
+    };
+
+    createStarSystem('⭐', 300, 40, 3000, 1000, 3000); // Massive skybox
+    createStarSystem('✨', 400, 30, 2000, 800, 2000);
+}
+
+function initPools() {
+    // 3D Coins
+    const coinGeo = new THREE.CylinderGeometry(0.7, 0.7, 0.2, 24);
+    const coinMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 1, roughness: 0.1, emissive: 0x554400 });
+    for(let i=0; i<15; i++) {
+        const coin = new THREE.Mesh(coinGeo, coinMat);
+        coin.rotation.x = Math.PI/2; coin.castShadow = true; coin.visible = false;
+        scene.add(coin); coins.push({ mesh: coin, active: false });
+    }
+
+    // 3D Enemies
+    const enemyColors = [0x555555, 0x990000, 0x005500, 0x000099, 0xcc5500];
+    for(let i=0; i<12; i++) {
+        const enemy = createCarMesh(enemyColors[i%5], false);
+        enemy.visible = false; scene.add(enemy); enemies.push({ mesh: enemy, active: false });
+    }
+
+    // MASSIVE UP-CLOSE PLANETS
+    for(let i=0; i<15; i++) {
+        const pGroup = new THREE.Group();
+        
+        // Huge Emoji Sprite
+        const emoji = planetEmojis[i % planetEmojis.length];
+        const tex = createEmojiTexture(emoji, 512);
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+        const sprite = new THREE.Sprite(mat);
+        pGroup.add(sprite);
+
+        // Add a glowing 3D Ring to some planets
+        if(i % 2 === 0) {
+            const ringGeo = new THREE.TorusGeometry(0.7, 0.05, 16, 100);
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xaa55ff, transparent: true, opacity: 0.6, side: THREE.DoubleSide });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.rotation.x = Math.PI / 1.5;
+            pGroup.add(ring);
+        }
+
+        pGroup.visible = false;
+        scene.add(pGroup);
+        planets.push({ mesh: pGroup, active: false, speed: Math.random()*20 + 10 });
+    }
+
+    // NEON ARCHES (Pass over the road for immense 3D speed feel)
+    const archGeo = new THREE.TorusGeometry(18, 0.5, 16, 50, Math.PI);
+    for(let i=0; i<10; i++) {
+        const archMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: i%2==0?0x00f3ff:0xb026ff, emissiveIntensity: 2 });
+        const arch = new THREE.Mesh(archGeo, archMat);
+        arch.visible = false; scene.add(arch);
+        arches.push({ mesh: arch, active: false });
+    }
+}
+
+function spawnObject(pool, type) {
+    const obj = pool.find(o => !o.active);
+    if(obj) {
+        obj.active = true; obj.mesh.visible = true;
+        
+        if(type === 'planet') {
+            // SPAWN RIGHT NEXT TO THE TRACK (X: ±150 to ±300), HUGE SCALE
+            const side = Math.random() > 0.5 ? 1 : -1;
+            const scale = Math.random() * 800 + 500; // 500 to 1300 units big!
+            obj.mesh.scale.set(scale, scale, scale);
+            // Y is low so it looms from the horizon
+            obj.mesh.position.set(side * (Math.random()*200 + 200), scale * 0.4 - 100, playerCar.position.z - 1800);
+        } else if (type === 'arch') {
+            obj.mesh.position.set(0, 0, playerCar.position.z - 1000);
+        } else {
+            const lane = Math.floor(Math.random() * 3) - 1; 
+            obj.mesh.position.set(lane * LANE_WIDTH, 0.5, playerCar.position.z - (type==='enemy'?400:300));
+        }
+    }
+}
+
+/** --------------------------------------------------------------------------
+ *  GAME LOOP
+ *  -------------------------------------------------------------------------- */
+let coinTimer = 0, enemyTimer = 0, planetTimer = 0, archTimer = 0;
+
+function updateGameplay(delta) {
+    gameSpeed += delta * 1.5; // Faster acceleration
+    const travel = gameSpeed * delta;
+    distanceTravelled += travel; time += delta; score += travel;
+
+    uiScore.innerText = Math.floor(score); uiTime.innerText = Math.floor(time);
+
+    // Texture Scroll
+    roadTex.offset.y -= (gameSpeed / 100) * delta * 8;
+    
+    // Smooth Lane Switch & Dynamic Roll
+    const targetX = targetLane * LANE_WIDTH;
+    playerCar.position.x += (targetX - playerCar.position.x) * 12 * delta;
+    playerCar.rotation.z = (playerCar.position.x - targetX) * 0.08; // Roll into turns
+    playerCar.rotation.y = (targetX - playerCar.position.x) * 0.04;
+
+    wheels.forEach(w => w.rotation.x -= gameSpeed * 0.3 * delta);
+
+    // Keep Shadow Light following player
+    shadowLight.position.z = playerCar.position.z + 20;
+    shadowLight.position.x = playerCar.position.x + 20;
+    shadowLight.target = playerCar;
+
+    // Timers
+    if((coinTimer -= delta) <= 0) { spawnObject(coins, 'coin'); coinTimer = Math.random() * 0.3 + 0.2; }
+    if((enemyTimer -= delta) <= 0) { spawnObject(enemies, 'enemy'); enemyTimer = Math.max(0.4, 2.0 - (gameSpeed * 0.015)); }
+    if((planetTimer -= delta) <= 0) { spawnObject(planets, 'planet'); planetTimer = 2.5; }
+    if((archTimer -= delta) <= 0) { spawnObject(arches, 'arch'); archTimer = 1.0; }
+
+    // Logic: Coins
+    coins.forEach(c => {
+        if(c.active) {
+            c.mesh.position.z += gameSpeed * delta; c.mesh.rotation.z += 8 * delta;
+            if(playerCar.position.distanceTo(c.mesh.position) < 3.0) {
+                c.active = false; c.mesh.visible = false; score += 200; playCoinSound();
+                uiScore.style.transform = "scale(1.6)"; setTimeout(() => uiScore.style.transform = "scale(1)", 150);
+            } else if(c.mesh.position.z > playerCar.position.z + 30) { c.active = false; c.mesh.visible = false; }
+        }
+    });
+
+    // Logic: Enemies
+    enemies.forEach(e => {
+        if(e.active) {
+            e.mesh.position.z += (gameSpeed * 0.65) * delta; 
+            const dz = Math.abs(playerCar.position.z - e.mesh.position.z);
+            const dx = Math.abs(playerCar.position.x - e.mesh.position.x);
+            if(dz < 4.8 && dx < 2.2) { gameOver(); } 
+            else if(e.mesh.position.z > playerCar.position.z + 30) { e.active = false; e.mesh.visible = false; }
+        }
+    });
+
+    // Logic: Huge Planets
+    planets.forEach(p => {
+        if(p.active) {
+            p.mesh.position.z += (gameSpeed * 0.2 + p.speed) * delta; // Parallax
+            p.mesh.rotation.y += 0.1 * delta; // Spin rings
+            if(p.mesh.position.z > playerCar.position.z + 400) { p.active = false; p.mesh.visible = false; }
+        }
+    });
+
+    // Logic: Arches
+    arches.forEach(a => {
+        if(a.active) {
+            a.mesh.position.z += gameSpeed * delta;
+            if(a.mesh.position.z > playerCar.position.z + 20) { a.active = false; a.mesh.visible = false; }
+        }
+    });
+
+    // Background Stars Animation
+    bgStars.forEach((sys, idx) => {
+        sys.material.opacity = 0.5 + Math.sin(time * (2 + idx)) * 0.5;
+        sys.rotation.y += 0.005 * delta;
+    });
+
+    updateCamera(delta);
+}
+
+function updateCamera(delta) {
+    const camCfg = camAngles[camIndex];
+    // Camera Shake at high speeds
+    const shakeX = (Math.random() - 0.5) * (gameSpeed * 0.001);
+    const shakeY = (Math.random() - 0.5) * (gameSpeed * 0.001);
+
+    const tPos = new THREE.Vector3(playerCar.position.x * 0.3 + camCfg.offset.x + shakeX, camCfg.offset.y + shakeY, playerCar.position.z + camCfg.offset.z);
+    camera.position.lerp(tPos, 10 * delta);
+
+    const tLook = new THREE.Vector3(playerCar.position.x * 0.4, camCfg.lookAtY, playerCar.position.z + camCfg.lookAtZ);
+    currentLookAt.lerp(tLook, 12 * delta);
+    camera.lookAt(currentLookAt);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.1);
+
+    if(gameState === 'PLAYING') {
+        updateGameplay(delta);
+    } else if(gameState === 'MENU') {
+        camera.position.x = Math.sin(Date.now() * 0.001) * 8;
+        camera.position.y = 10;
+        camera.lookAt(0, 2, -50);
+    }
+    renderer.render(scene, camera);
+}
+
+/** --------------------------------------------------------------------------
+ *  STATE & CONTROLS
+ *  -------------------------------------------------------------------------- */
+function startGame() {
+    initAudio(); playBGM();
+    score = 0; time = 0; distanceTravelled = 0; gameSpeed = 60; targetLane = 0;
+    playerCar.position.set(0, 0, 0); playerCar.rotation.set(0,0,0);
+    
+    [coins, enemies, planets, arches].forEach(p => p.forEach(o => { o.active = false; o.mesh.visible = false; }));
+
+    gsap.to('.splash-card', {scale: 0.5, opacity: 0, duration: 0.4});
+    gsap.to('.header-title', {y: -150, opacity: 0, duration: 0.4, onComplete: () => {
+        document.getElementById('splash-screen').classList.add('hidden');
+        document.getElementById('hud').style.display = 'flex';
+        document.getElementById('on-screen-controls').style.display = 'flex';
+        gameState = 'PLAYING'; clock.start();
+    }});
+    forceFullscreenAndLandscape();
+}
+
+function gameOver() {
+    gameState = 'GAMEOVER'; playCrashSound(); stopBGM();
+    if(score > highScore) { highScore = score; try{localStorage.setItem('spaceCarHighScore', highScore);}catch(e){} }
+    
+    document.getElementById('go-score').innerText = Math.floor(score);
+    document.getElementById('go-highscore').innerText = Math.floor(highScore);
+    
+    document.getElementById('hud').style.display = 'none';
+    document.getElementById('on-screen-controls').style.display = 'none';
+    const goScreen = document.getElementById('gameover-screen');
+    goScreen.classList.remove('hidden');
+    
+    // Crash zoom out effect
+    gsap.to(camera.position, {y: 30, z: playerCar.position.z + 30, duration: 1.5, ease: "power2.out"});
+    gsap.fromTo('.gameover-card', {scale: 0.2, opacity: 0}, {scale: 1, opacity: 1, duration: 0.8, ease: "back.out(1.5)", delay: 0.5});
+}
+
+function returnToMenu() {
+    document.getElementById('gameover-screen').classList.add('hidden');
+    document.getElementById('splash-screen').classList.remove('hidden');
+    document.getElementById('splash-highscore').innerText = Math.floor(highScore);
+    gsap.fromTo('.splash-card', {scale: 0.5, opacity: 0}, {scale: 1, opacity: 1, duration: 0.6, ease:"back.out(1.2)"});
+    gsap.fromTo('.header-title', {y: -100, opacity: 0}, {y: 0, opacity: 1, duration: 0.6});
+    gameState = 'MENU';
+}
+
+function setupControls() {
+    window.addEventListener('keydown', (e) => {
+        if(gameState !== 'PLAYING') return;
+        if((e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') && targetLane > -1) targetLane--;
+        if((e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') && targetLane < 1) targetLane++;
+    });
+
+    let tsX = 0;
+    window.addEventListener('touchstart', e => { tsX = e.changedTouches[0].screenX; }, {passive: false});
+    window.addEventListener('touchend', e => {
+        if(gameState !== 'PLAYING' || e.target.closest('.game-btn')) return;
+        let teX = e.changedTouches[0].screenX;
+        if(teX < tsX - 60 && targetLane > -1) targetLane--;
+        if(teX > tsX + 60 && targetLane < 1) targetLane++;
+    }, {passive: false});
+
+    document.getElementById('btn-left').addEventListener('pointerdown', (e) => { e.preventDefault(); if(gameState==='PLAYING' && targetLane > -1) targetLane--; });
+    document.getElementById('btn-right').addEventListener('pointerdown', (e) => { e.preventDefault(); if(gameState==='PLAYING' && targetLane < 1) targetLane++; });
+    document.getElementById('btn-cam').addEventListener('pointerdown', (e) => { e.preventDefault(); camIndex = (camIndex + 1) % camAngles.length; });
+
+    document.getElementById('btn-start').addEventListener('click', startGame);
+    document.getElementById('btn-restart').addEventListener('click', () => { document.getElementById('gameover-screen').classList.add('hidden'); startGame(); });
+    document.getElementById('btn-menu').addEventListener('click', returnToMenu);
+    
+    document.getElementById('btn-color').addEventListener('click', () => {
+        colorIndex = (colorIndex + 1) % carColors.length;
+        carBodyMat.color.setHex(carColors[colorIndex]);
+        gsap.fromTo(playerCar.scale, {y: 0.6, x: 1.2}, {y: 1, x: 1, duration: 0.5, ease: "elastic.out"});
+    });
+}
+
+function onWindowResize() { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); checkOrientation(); }
+function checkOrientation() { if(window.innerHeight > window.innerWidth) document.getElementById('portrait-warning').classList.add('active'); else document.getElementById('portrait-warning').classList.remove('active'); }
+function forceFullscreenAndLandscape() { const el = document.documentElement; if(el.requestFullscreen) el.requestFullscreen().catch(()=>{}); else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen(); if(screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); }
+
+window.onload = () => { initThree(); checkOrientation(); };
+</script>
+</body>
+</html>

@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AnshuRajhans - Sweet Puzzle</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        poppins: ['Poppins', 'sans-serif'],
+                        kavoon: ['Kavoon', 'cursive'],
+                    },
+                    colors: {
+                        primary: '#ffffff',
+                        secondary: '#000000',
+                        accent: '#f5f5f7',
+                        border: '#e5e5e5',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kavoon&family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <!-- SweetAlert2 & IziToast -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/izitoast/dist/css/iziToast.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/izitoast/dist/js/iziToast.min.js"></script>
+
+    <style>
+        body {
+            overscroll-behavior: none;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .game-grid {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 2px;
+            width: 100%;
+            max-width: min(95vw, 70vh);
+            height: min(95vw, 70vh);
+            aspect-ratio: 1 / 1;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 6px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            margin: auto;
+        }
+
+        @media (min-width: 768px) {
+            .game-grid { gap: 4px; padding: 8px; max-width: min(80vw, 80vh); height: min(80vw, 80vh); }
+        }
+
+        .dark .game-grid {
+            background: rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .candy-cell {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.2s ease, background 0.3s ease;
+            cursor: pointer;
+        }
+        @media (min-width: 768px) { .candy-cell { border-radius: 12px; } }
+        .dark .candy-cell { background: rgba(0, 0, 0, 0.2); }
+        .candy-cell:hover { background: rgba(255, 255, 255, 0.2); transform: scale(1.05); }
+
+        .candy-icon {
+            width: 80%;
+            height: 80%;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));
+        }
+
+        /* Animations */
+        @keyframes popIn { 0% { transform: scale(0); opacity: 0; } 80% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+        .anim-pop { animation: popIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+
+        @keyframes explode { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.4); opacity: 0.8; filter: brightness(2); } 100% { transform: scale(0); opacity: 0; } }
+        .anim-explode { animation: explode 0.3s ease-out forwards; }
+        
+        @keyframes massive-explode { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(2); opacity: 1; filter: brightness(3) sepia(1); z-index: 50; } 100% { transform: scale(0); opacity: 0; } }
+        .anim-bomb-explode { animation: massive-explode 0.4s ease-out forwards; }
+
+        @keyframes drop { 0% { transform: translateY(-100%); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+        .anim-drop { animation: drop 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+
+        @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); filter: brightness(1.2); } }
+        .anim-pulse { animation: pulse 1.5s infinite; }
+
+        @keyframes hintGlow { 0%, 100% { box-shadow: 0 0 0px transparent; transform: scale(1); } 50% { box-shadow: 0 0 15px #fff; transform: scale(1.1); } }
+        .hint-active { animation: hintGlow 1.5s infinite; z-index: 10; border-radius: 8px;}
+        @media (min-width: 768px) { .hint-active { border-radius: 12px; } }
+
+        /* Loading & Particles */
+        .loading-bar-container { width: 200px; height: 6px; background: rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
+        .dark .loading-bar-container { background: rgba(255,255,255,0.1); }
+        .loading-bar { height: 100%; width: 0%; background: #000; transition: width 2.5s ease-in-out; }
+        .dark .loading-bar { background: #fff; }
+
+        .particle { position: absolute; pointer-events: none; border-radius: 50%; animation: floatAway 0.6s ease-out forwards; z-index: 40; }
+        @keyframes floatAway { 0% { transform: translate(0, 0) scale(1); opacity: 1; } 100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; } }
+
+        .screen { display: none; opacity: 0; transition: opacity 0.5s ease; width: 100vw; height: 100vh; }
+        .screen.active { display: flex; opacity: 1; }
+    </style>
+</head>
+<body class="bg-accent dark:bg-secondary text-secondary dark:text-primary font-poppins transition-colors duration-500 overflow-hidden w-screen h-screen">
+
+    <div id="app-container" class="relative w-full h-full flex items-center justify-center">
+
+        <!-- Theme Toggle Button (Top Left) -->
+        <button id="theme-toggle" class="absolute top-6 left-6 z-40 p-3 rounded-full bg-white/40 dark:bg-black/40 backdrop-blur-md border border-border dark:border-gray-700 shadow-xl hover:scale-110 transition-all duration-300 opacity-0 pointer-events-none">
+            <svg id="sun-icon" class="w-6 h-6 hidden dark:block text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+            <svg id="moon-icon" class="w-6 h-6 block dark:hidden text-gray-800" fill="currentColor" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"></path></svg>
+        </button>
+
+        <!-- Fullscreen Toggle Button (Top Right) -->
+        <button id="fullscreen-toggle" class="absolute top-6 right-6 z-40 p-3 rounded-full bg-white/40 dark:bg-black/40 backdrop-blur-md border border-border dark:border-gray-700 shadow-xl hover:scale-110 transition-all duration-300 opacity-0 pointer-events-none">
+            <svg id="fs-enter" class="w-6 h-6 text-gray-800 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+            <svg id="fs-exit" class="w-6 h-6 hidden text-gray-800 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 14h4m0 0v4m0-4l-5 5m11-11V4m0 0h-4m4 0l-5 5M4 10h4m0 0V6m0 4l-5-5m11 11h-4m0 0v4m0-4l5 5"></path></svg>
+        </button>
+
+        <!-- 1. SPLASH SCREEN -->
+        <div id="screen-splash" class="screen active flex-col items-center justify-center bg-accent dark:bg-secondary relative z-30">
+            <div class="anim-pop flex flex-col items-center text-center px-4">
+                <svg class="w-28 h-28 md:w-32 md:h-32 mb-4 drop-shadow-2xl anim-pulse" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="40" fill="url(#candyGradSplash)" />
+                    <path d="M 20 50 Q 50 20 80 50 Q 50 80 20 50" fill="rgba(255,255,255,0.3)"/>
+                    <defs>
+                        <linearGradient id="candyGradSplash" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#ff4757;stop-opacity:1" />
+                            <stop offset="100%" style="stop-color:#ff6b81;stop-opacity:1" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+                <h1 class="text-5xl md:text-6xl font-kavoon bg-clip-text text-transparent bg-gradient-to-r from-red-500 to-orange-400 drop-shadow-lg tracking-wider">AnshuRajhans</h1>
+                <p class="text-lg md:text-xl font-poppins font-semibold mt-2 text-gray-600 dark:text-gray-300">Sweet Puzzle Game</p>
+                <div class="loading-bar-container mt-8 shadow-inner">
+                    <div id="loading-progress" class="loading-bar"></div>
+                </div>
+            </div>
+            <p class="absolute bottom-6 font-poppins text-xs md:text-sm text-gray-400 tracking-widest">@anshurajhans</p>
+        </div>
+
+        <!-- 2. MAIN MENU -->
+        <div id="screen-menu" class="screen flex-col items-center justify-center bg-cover bg-center px-4">
+            <div class="bg-white/30 dark:bg-black/40 backdrop-blur-xl p-8 md:p-12 rounded-3xl border border-white/40 dark:border-gray-600 shadow-2xl flex flex-col items-center transform transition-all max-w-[90vw]">
+                <h1 class="text-4xl md:text-7xl font-kavoon mb-2 text-center drop-shadow-md">AnshuRajhans</h1>
+                <p class="text-sm md:text-lg mb-8 md:mb-10 text-center opacity-80">Match 4 for Bomb 💣 | Match 5 for Color Bomb 🌟</p>
+                
+                <button id="btn-play" class="px-10 py-3 md:px-12 md:py-4 bg-gradient-to-r from-pink-500 to-orange-400 text-white font-bold text-xl md:text-2xl rounded-2xl shadow-[0_10px_20px_rgba(236,72,153,0.4)] hover:shadow-[0_15px_25px_rgba(236,72,153,0.6)] hover:-translate-y-1 transition-all duration-300">
+                    PLAY NOW
+                </button>
+                
+                <a href="https://instagram.com/anshurajhans" target="_blank" class="mt-8 text-xs md:text-sm opacity-60 hover:opacity-100 transition-opacity flex items-center gap-2">
+                    <svg class="w-4 h-4 md:w-5 md:h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+                    @anshurajhans
+                </a>
+            </div>
+        </div>
+
+        <!-- 3. GAME SCREEN -->
+        <div id="screen-game" class="screen flex-col md:flex-row items-center justify-center gap-4 md:gap-8 px-4 md:px-8 py-4 w-full h-full max-w-[1200px] mx-auto relative">
+            <div class="flex flex-row md:flex-col items-center justify-between md:justify-start gap-3 md:gap-6 w-full md:w-[250px] bg-white/40 dark:bg-black/40 backdrop-blur-md p-3 md:p-6 rounded-2xl md:rounded-3xl shadow-xl border border-white/50 dark:border-gray-700 z-10 shrink-0">
+                <h2 class="hidden md:block text-3xl font-kavoon text-center bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-purple-500">AnshuRajhans</h2>
+                <div class="flex flex-row md:flex-col gap-3 md:gap-6 flex-1 w-full justify-center">
+                    <div class="flex-1 md:w-full bg-white dark:bg-gray-800 p-2 md:p-4 rounded-xl md:rounded-2xl shadow-inner text-center">
+                        <p class="text-[10px] md:text-sm text-gray-500 dark:text-gray-400 uppercase tracking-widest font-bold">Score</p>
+                        <p id="score-display" class="text-xl md:text-4xl font-black text-gray-800 dark:text-white mt-1 transition-all">0</p>
+                    </div>
+                    <div class="flex-1 md:w-full bg-white dark:bg-gray-800 p-2 md:p-4 rounded-xl md:rounded-2xl shadow-inner text-center">
+                        <p class="text-[10px] md:text-sm text-gray-500 dark:text-gray-400 uppercase tracking-widest font-bold">Moves</p>
+                        <p id="moves-display" class="text-xl md:text-4xl font-black text-blue-500 mt-1">20</p>
+                    </div>
+                </div>
+                <button id="btn-quit" class="px-5 py-3 md:mt-auto md:w-full rounded-xl md:rounded-2xl border-2 border-red-500 text-red-500 font-bold hover:bg-red-500 hover:text-white transition-colors duration-300 text-sm md:text-base h-full md:h-auto flex items-center justify-center">
+                    Quit
+                </button>
+            </div>
+            <div class="flex-1 w-full flex items-center justify-center relative">
+                <div id="game-board" class="game-grid"></div>
+                <div id="floating-text-layer" class="absolute inset-0 pointer-events-none flex items-center justify-center z-50"></div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- AUDIO ENGINE -->
+    <script>
+        const AudioEngine = {
+            ctx: null,
+            init() { if(!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+            playTone(freq, type, duration, vol=0.1) {
+                if(!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.start(); gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.stop(this.ctx.currentTime + duration);
+            },
+            playSwap() { this.init(); this.playTone(400, 'sine', 0.1, 0.05); setTimeout(() => this.playTone(500, 'sine', 0.1, 0.05), 50); },
+            playMatch() { this.init(); this.playTone(600, 'triangle', 0.2, 0.1); this.playTone(800, 'triangle', 0.3, 0.1); },
+            playCombo(mult) { this.init(); const f = 600 + (mult * 100); this.playTone(f, 'square', 0.4, 0.08); this.playTone(f * 1.25, 'square', 0.5, 0.08); },
+            playBomb() { this.init(); this.playTone(100, 'sawtooth', 0.5, 0.3); this.playTone(50, 'square', 0.6, 0.3); },
+            playWin() { this.init(); [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => setTimeout(() => this.playTone(freq, 'sine', 0.5, 0.1), i * 150)); },
+            playError() { this.init(); this.playTone(150, 'sawtooth', 0.3, 0.1); }
+        };
+    </script>
+
+    <!-- GAME LOGIC -->
+    <script>
+        // --- 1. TOGGLES & THEME MANAGEMENT ---
+        const themeToggle = document.getElementById('theme-toggle');
+        const fullscreenBtn = document.getElementById('fullscreen-toggle');
+        const html = document.documentElement;
+        
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            html.classList.add('dark');
+        } else {
+            html.classList.remove('dark');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            html.classList.toggle('dark');
+            localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+        });
+
+        // Fullscreen Logic
+        fullscreenBtn.addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => console.log(err));
+            } else {
+                document.exitFullscreen();
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                document.getElementById('fs-enter').classList.add('hidden');
+                document.getElementById('fs-exit').classList.remove('hidden');
+            } else {
+                document.getElementById('fs-enter').classList.remove('hidden');
+                document.getElementById('fs-exit').classList.add('hidden');
+            }
+        });
+
+        function setTogglesVisibility(show) {
+            if(show) {
+                themeToggle.classList.remove('opacity-0', 'pointer-events-none');
+                fullscreenBtn.classList.remove('opacity-0', 'pointer-events-none');
+            } else {
+                themeToggle.classList.add('opacity-0', 'pointer-events-none');
+                fullscreenBtn.classList.add('opacity-0', 'pointer-events-none');
+            }
+        }
+
+        // --- 2. CANDY SVGs (Including Bombs) ---
+        const baseCandies = [
+            `<svg class="candy-icon" viewBox="0 0 100 100"><defs><radialGradient id="g0" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#ff7eb3"/><stop offset="100%" stop-color="#ff4757"/></radialGradient></defs><rect x="15" y="15" width="70" height="70" rx="30" fill="url(#g0)"/><path d="M 30 30 Q 50 15 70 30" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.6"/></svg>`,
+            `<svg class="candy-icon" viewBox="0 0 100 100"><defs><linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#70a1ff"/><stop offset="100%" stop-color="#1e90ff"/></linearGradient></defs><polygon points="50,10 90,50 50,90 10,50" fill="url(#g1)" stroke="#ffffff" stroke-width="2" stroke-linejoin="round"/><polygon points="50,20 80,50 50,80 20,50" fill="none" stroke="white" stroke-width="2" opacity="0.4"/></svg>`,
+            `<svg class="candy-icon" viewBox="0 0 100 100"><defs><linearGradient id="g2" x1="0%" y1="100%" x2="100%" y2="0%"><stop offset="0%" stop-color="#2ed573"/><stop offset="100%" stop-color="#7bed9f"/></linearGradient></defs><rect x="20" y="20" width="60" height="60" rx="15" fill="url(#g2)" transform="rotate(10 50 50)"/><circle cx="35" cy="35" r="5" fill="white" opacity="0.8"/></svg>`,
+            `<svg class="candy-icon" viewBox="0 0 100 100"><defs><radialGradient id="g3" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#eccc68"/><stop offset="100%" stop-color="#ffa502"/></radialGradient></defs><path d="M 50 15 C 50 15 20 60 20 75 C 20 91.5 33.5 105 50 105 C 66.5 105 80 91.5 80 75 C 80 60 50 15 50 15 Z" fill="url(#g3)" transform="translate(0, -10)"/><ellipse cx="40" cy="65" rx="5" ry="10" fill="white" opacity="0.6" transform="rotate(-30 40 65)"/></svg>`,
+            `<svg class="candy-icon" viewBox="0 0 100 100"><defs><linearGradient id="g4" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#a29bfe"/><stop offset="100%" stop-color="#6c5ce7"/></linearGradient></defs><circle cx="50" cy="50" r="35" fill="url(#g4)"/><path d="M 30 35 Q 50 20 70 35" fill="none" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.6"/></svg>`,
+            `<svg class="candy-icon" viewBox="0 0 100 100"><defs><radialGradient id="g5" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#ff7f50"/><stop offset="100%" stop-color="#e15f41"/></radialGradient></defs><path d="M 15 50 C 15 30 30 15 50 15 C 70 15 85 30 85 50 C 85 70 70 85 50 85 C 30 85 15 70 15 50 Z" fill="url(#g5)"/><path d="M 0 50 L 20 30 L 20 70 Z M 100 50 L 80 30 L 80 70 Z" fill="#ff7f50" opacity="0.8"/><circle cx="35" cy="35" r="4" fill="white" opacity="0.8"/></svg>`
+        ];
+
+        const bombOverlay = `<circle cx="50" cy="50" r="22" fill="#2d3436" stroke="#fff" stroke-width="2"/><path d="M 50 28 Q 60 15 75 20" fill="none" stroke="#dfe6e9" stroke-width="3"/><circle cx="75" cy="20" r="4" fill="#ff7675" class="anim-pulse"/><text x="50" y="55" fill="#fff" font-size="24" font-family="sans-serif" text-anchor="middle" dominant-baseline="middle">💣</text>`;
+        
+        let candies = [...baseCandies];
+        // 6-11: Color Bombs (4-match)
+        for(let i=0; i<6; i++) candies.push(baseCandies[i].replace('</svg>', bombOverlay + '</svg>'));
+        
+        // 12: Super Color Bomb (5-match)
+        candies.push(`<svg class="candy-icon anim-pulse" viewBox="0 0 100 100"><circle cx="50" cy="50" r="35" fill="#4b3832" stroke="#fff" stroke-width="4"/><circle cx="35" cy="35" r="6" fill="#ff4757"/><circle cx="65" cy="35" r="6" fill="#1e90ff"/><circle cx="50" cy="65" r="6" fill="#2ed573"/><circle cx="35" cy="65" r="6" fill="#ffa502"/><circle cx="65" cy="65" r="6" fill="#e15f41"/><circle cx="50" cy="50" r="6" fill="#6c5ce7"/><circle cx="50" cy="20" r="6" fill="#fff"/></svg>`);
+
+        const candyColors = ['#ff4757', '#1e90ff', '#2ed573', '#ffa502', '#6c5ce7', '#e15f41'];
+
+        // --- 3. GAME STATE ---
+        const WIDTH = 8;
+        const INITIAL_MOVES = 20;
+        let grid = [];
+        let score = 0;
+        let moves = INITIAL_MOVES;
+        let isProcessing = false;
+        let comboCount = 0;
+        let hintTimeout = null;
+        let powerUpCooldownEnds = 0; // 1-minute cooldown tracker
+
+        const boardEl = document.getElementById('game-board');
+        const scoreEl = document.getElementById('score-display');
+        const movesEl = document.getElementById('moves-display');
+
+        let dragStartIdx = null; let startX, startY;
+
+        // --- 4. INITIALIZATION ---
+        window.addEventListener('load', () => {
+            setTimeout(() => { document.getElementById('loading-progress').style.width = '100%'; }, 100);
+            setTimeout(() => { 
+                switchScreen(document.getElementById('screen-splash'), document.getElementById('screen-menu')); 
+                setTogglesVisibility(true); // Show toggles in menu
+            }, 2600);
+        });
+
+        document.getElementById('btn-play').addEventListener('click', () => {
+            AudioEngine.init();
+            setTogglesVisibility(false); // Hide toggles in game
+            startGame();
+            switchScreen(document.getElementById('screen-menu'), document.getElementById('screen-game'));
+        });
+
+        document.getElementById('btn-quit').addEventListener('click', () => {
+            Swal.fire({
+                title: 'Quit Game?', icon: 'warning', showCancelButton: true,
+                confirmButtonColor: '#ff4757', cancelButtonColor: '#a4b0be', confirmButtonText: 'Yes, Quit',
+                background: html.classList.contains('dark') ? '#1e272e' : '#fff',
+                color: html.classList.contains('dark') ? '#fff' : '#000',
+            }).then((result) => { if (result.isConfirmed) endGame(true); });
+        });
+
+        function switchScreen(hideEl, showEl) {
+            hideEl.classList.remove('active');
+            setTimeout(() => { showEl.classList.add('active'); }, 500);
+        }
+
+        // --- 5. CORE GAME LOGIC ---
+        function startGame() {
+            score = 0; moves = INITIAL_MOVES; powerUpCooldownEnds = 0; updateUI();
+            generateValidBoard(); renderBoard(); resetHintTimer();
+        }
+
+        function getBaseColor(val) {
+            if (val >= 0 && val <= 5) return val;
+            if (val >= 6 && val <= 11) return val - 6;
+            return -1; // Color bomb doesn't auto-match
+        }
+
+        function generateValidBoard() {
+            grid = new Array(WIDTH * WIDTH).fill(-1);
+            for (let i = 0; i < grid.length; i++) {
+                let randomCandy; let isMatch;
+                do {
+                    randomCandy = Math.floor(Math.random() * 6); // Only 0-5
+                    isMatch = false;
+                    if (i % WIDTH >= 2 && grid[i - 1] === randomCandy && grid[i - 2] === randomCandy) isMatch = true;
+                    if (i >= WIDTH * 2 && grid[i - WIDTH] === randomCandy && grid[i - WIDTH * 2] === randomCandy) isMatch = true;
+                } while (isMatch);
+                grid[i] = randomCandy;
+            }
+        }
+
+        function renderBoard() {
+            boardEl.innerHTML = '';
+            for (let i = 0; i < grid.length; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'candy-cell'; cell.setAttribute('data-id', i);
+                if (grid[i] !== -1) { cell.innerHTML = candies[grid[i]]; cell.firstChild.classList.add('anim-pop'); }
+                cell.addEventListener('pointerdown', handleDragStart);
+                boardEl.appendChild(cell);
+            }
+            document.addEventListener('pointerup', handleDragEnd, { once: false });
+        }
+
+        function updateUI() {
+            scoreEl.innerText = score; movesEl.innerText = moves;
+            scoreEl.style.transform = 'scale(1.2)'; setTimeout(() => scoreEl.style.transform = 'scale(1)', 200);
+            if (moves <= 5) { movesEl.classList.remove('text-blue-500'); movesEl.classList.add('text-red-500', 'animate-pulse'); }
+            else { movesEl.classList.add('text-blue-500'); movesEl.classList.remove('text-red-500', 'animate-pulse'); }
+        }
+
+        // --- 6. DRAG & SWAP SYSTEM ---
+        function handleDragStart(e) {
+            if (isProcessing || moves <= 0) return;
+            dragStartIdx = parseInt(e.currentTarget.getAttribute('data-id'));
+            startX = e.clientX || e.touches?.[0].clientX; startY = e.clientY || e.touches?.[0].clientY;
+            e.currentTarget.style.transform = 'scale(0.9)'; clearHints();
+        }
+
+        function handleDragEnd(e) {
+            if (dragStartIdx === null || isProcessing) return;
+            const endX = e.clientX || e.changedTouches?.[0].clientX || startX;
+            const endY = e.clientY || e.changedTouches?.[0].clientY || startY;
+            const diffX = endX - startX; const diffY = endY - startY;
+
+            const startCell = document.querySelector(`[data-id="${dragStartIdx}"]`);
+            if(startCell) startCell.style.transform = 'scale(1)';
+
+            if (Math.abs(diffX) < 20 && Math.abs(diffY) < 20) { dragStartIdx = null; return; }
+
+            let dragEndIdx = null;
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                if (diffX > 0 && dragStartIdx % WIDTH < WIDTH - 1) dragEndIdx = dragStartIdx + 1;
+                else if (diffX < 0 && dragStartIdx % WIDTH > 0) dragEndIdx = dragStartIdx - 1;
+            } else {
+                if (diffY > 0 && dragStartIdx + WIDTH < WIDTH * WIDTH) dragEndIdx = dragStartIdx + WIDTH;
+                else if (diffY < 0 && dragStartIdx - WIDTH >= 0) dragEndIdx = dragStartIdx - WIDTH;
+            }
+
+            if (dragEndIdx !== null) attemptSwap(dragStartIdx, dragEndIdx);
+            dragStartIdx = null;
+        }
+
+        async function attemptSwap(i, j) {
+            isProcessing = true; AudioEngine.playSwap(); clearHints();
+
+            let colorBombTriggered = false;
+            let matchedSet = new Set();
+
+            if (grid[i] === 12 || grid[j] === 12) {
+                const targetColorIdx = grid[i] === 12 ? j : i;
+                const bombIdx = grid[i] === 12 ? i : j;
+                if (grid[targetColorIdx] !== 12) {
+                    const targetColor = getBaseColor(grid[targetColorIdx]);
+                    matchedSet.add(bombIdx);
+                    for(let k=0; k<grid.length; k++) {
+                        if (getBaseColor(grid[k]) === targetColor) matchedSet.add(k);
+                    }
+                    colorBombTriggered = true;
+                } else {
+                    for(let k=0; k<grid.length; k++) matchedSet.add(k);
+                    colorBombTriggered = true;
+                }
+            }
+
+            [grid[i], grid[j]] = [grid[j], grid[i]];
+            await animateSwap(i, j);
+
+            if (!colorBombTriggered) matchedSet = findMatches();
+
+            if (matchedSet.size > 0) {
+                moves--; updateUI(); comboCount = 1;
+                await processMatches(matchedSet, j);
+            } else {
+                AudioEngine.playError();
+                [grid[i], grid[j]] = [grid[j], grid[i]];
+                await animateSwap(i, j);
+                isProcessing = false; resetHintTimer();
+            }
+        }
+
+        function animateSwap(i, j) {
+            return new Promise(resolve => {
+                const cA = document.querySelector(`[data-id="${i}"]`); const cB = document.querySelector(`[data-id="${j}"]`);
+                const iA = cA.innerHTML; const iB = cB.innerHTML;
+                cA.innerHTML = iB; cB.innerHTML = iA;
+                if(cA.firstChild) cA.firstChild.classList.add('anim-pop');
+                if(cB.firstChild) cB.firstChild.classList.add('anim-pop');
+                setTimeout(resolve, 250);
+            });
+        }
+
+        // --- 7. MATCHING ENGINE ---
+        function findMatches() {
+            let matchedIndices = new Set();
+            for (let r = 0; r < WIDTH; r++) {
+                for (let c = 0; c < WIDTH - 2; c++) {
+                    const i = r * WIDTH + c; const color = getBaseColor(grid[i]);
+                    if (color === -1) continue;
+                    if (getBaseColor(grid[i+1]) === color && getBaseColor(grid[i+2]) === color) {
+                        matchedIndices.add(i).add(i + 1).add(i + 2);
+                        let k = 3; while (c + k < WIDTH && getBaseColor(grid[i + k]) === color) { matchedIndices.add(i + k); k++; }
+                    }
+                }
+            }
+            for (let c = 0; c < WIDTH; c++) {
+                for (let r = 0; r < WIDTH - 2; r++) {
+                    const i = r * WIDTH + c; const color = getBaseColor(grid[i]);
+                    if (color === -1) continue;
+                    if (getBaseColor(grid[i+WIDTH]) === color && getBaseColor(grid[i+WIDTH*2]) === color) {
+                        matchedIndices.add(i).add(i + WIDTH).add(i + WIDTH * 2);
+                        let k = 3; while (r + k < WIDTH && getBaseColor(grid[i + k * WIDTH]) === color) { matchedIndices.add(i + k * WIDTH); k++; }
+                    }
+                }
+            }
+            return matchedIndices;
+        }
+
+        async function processMatches(matches, originIdx = null) {
+            let spawnPowerUp = -1;
+            let spawnTarget = originIdx !== null && matches.has(originIdx) ? originIdx : Array.from(matches)[0];
+
+            // Power-Up Spawning Logic + COOLDOWN handling
+            if (matches.size >= 4) {
+                if (Date.now() >= powerUpCooldownEnds) {
+                    if (matches.size >= 5) spawnPowerUp = 12; // Color Bomb
+                    else if (spawnTarget !== undefined) spawnPowerUp = getBaseColor(grid[spawnTarget]) + 6; // Bomb
+                    
+                    if (spawnPowerUp !== -1) {
+                        powerUpCooldownEnds = Date.now() + 60000; // Trigger 1 Minute Cooldown
+                    }
+                }
+            }
+
+            // Explode Bombs Queue logic
+            let queue = Array.from(matches);
+            let processed = new Set();
+            let bombDetonated = false;
+
+            while (queue.length > 0) {
+                let curr = queue.shift();
+                if (processed.has(curr)) continue;
+                processed.add(curr);
+
+                if (grid[curr] >= 6 && grid[curr] <= 11) {
+                    bombDetonated = true;
+                    let r = Math.floor(curr / WIDTH); let c = curr % WIDTH;
+                    for(let dr = -1; dr <= 1; dr++) {
+                        for(let dc = -1; dc <= 1; dc++) {
+                            let nr = r + dr, nc = c + dc;
+                            if (nr >= 0 && nr < WIDTH && nc >= 0 && nc < WIDTH) {
+                                let nIdx = nr * WIDTH + nc;
+                                if (!processed.has(nIdx)) { matches.add(nIdx); queue.push(nIdx); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (spawnPowerUp !== -1) matches.delete(spawnTarget);
+
+            const points = matches.size * 10 * comboCount; score += points; updateUI();
+
+            // Sound and Visual Feedback based on Cooldown status
+            if (bombDetonated) AudioEngine.playBomb();
+            else if (comboCount > 1) { 
+                AudioEngine.playCombo(comboCount); 
+                showFloatingText(`Combo x${comboCount}!`, points); 
+            } 
+            else { 
+                AudioEngine.playMatch(); 
+                if(matches.size >= 4) {
+                    if (spawnPowerUp !== -1) showFloatingText(matches.size >= 5 ? 'Amazing!' : 'Great!', points);
+                    else {
+                        // Cooldown feedback
+                        let remaining = Math.ceil((powerUpCooldownEnds - Date.now()) / 1000);
+                        showFloatingText(`Cooldown ${remaining}s`, points);
+                    }
+                }
+            }
+
+            const matchArr = Array.from(matches);
+            matchArr.forEach(idx => {
+                const cell = document.querySelector(`[data-id="${idx}"]`);
+                if(cell.firstChild) {
+                    cell.firstChild.classList.remove('anim-pop');
+                    cell.firstChild.classList.add(bombDetonated && grid[idx] >= 6 && grid[idx] <= 11 ? 'anim-bomb-explode' : 'anim-explode');
+                    createParticles(cell, getBaseColor(grid[idx]) !== -1 ? getBaseColor(grid[idx]) : 0);
+                }
+                grid[idx] = -1;
+            });
+
+            if (spawnPowerUp !== -1) grid[spawnTarget] = spawnPowerUp;
+
+            await delay(350);
+            renderBoardAfterGravity(true);
+            await delay(50);
+            await applyGravity();
+        }
+
+        function createParticles(cell, baseColorIdx) {
+            const rect = cell.getBoundingClientRect(); const color = candyColors[baseColorIdx];
+            for(let i=0; i<6; i++) {
+                const p = document.createElement('div'); p.className = 'particle'; p.style.backgroundColor = color;
+                p.style.width = Math.random() * 8 + 4 + 'px'; p.style.height = p.style.width;
+                p.style.left = (rect.left + rect.width/2) + 'px'; p.style.top = (rect.top + rect.height/2) + 'px';
+                p.style.setProperty('--tx', (Math.random() - 0.5) * 100 + 'px'); p.style.setProperty('--ty', (Math.random() - 0.5) * 100 + 'px');
+                document.body.appendChild(p); setTimeout(() => p.remove(), 600);
+            }
+        }
+
+        function showFloatingText(text, points) {
+            const layer = document.getElementById('floating-text-layer');
+            const el = document.createElement('div');
+            el.className = 'absolute text-2xl md:text-4xl font-kavoon text-white drop-shadow-lg text-center';
+            el.style.textShadow = '0 4px 6px rgba(0,0,0,0.5)'; el.innerHTML = `${text}<br><span class="text-xl md:text-2xl">+${points}</span>`;
+            const tx = (Math.random() - 0.5) * 100 + 'px'; el.style.transform = `translate(${tx}, 50px)`;
+            layer.appendChild(el);
+            el.animate([{ opacity: 0, transform: `translate(${tx}, 50px) scale(0.5)` }, { opacity: 1, transform: `translate(${tx}, 0px) scale(1.2)`, offset: 0.2 }, { opacity: 1, transform: `translate(${tx}, -20px) scale(1)`, offset: 0.8 }, { opacity: 0, transform: `translate(${tx}, -50px) scale(0.8)` }], { duration: 1500, easing: 'ease-in-out' });
+            setTimeout(() => el.remove(), 1500);
+        }
+
+        // --- 8. GRAVITY ---
+        async function applyGravity() {
+            let moved = false;
+            for (let c = 0; c < WIDTH; c++) {
+                for (let r = WIDTH - 1; r >= 0; r--) {
+                    const i = r * WIDTH + c;
+                    if (grid[i] === -1) {
+                        for (let k = r - 1; k >= 0; k--) {
+                            const aboveIdx = k * WIDTH + c;
+                            if (grid[aboveIdx] !== -1) { grid[i] = grid[aboveIdx]; grid[aboveIdx] = -1; moved = true; break; }
+                        }
+                    }
+                }
+            }
+
+            for (let i = 0; i < grid.length; i++) {
+                if (grid[i] === -1) { grid[i] = Math.floor(Math.random() * 6); moved = true; } // Random 0-5
+            }
+
+            if (moved) {
+                renderBoardAfterGravity(false); await delay(400);
+                const newMatches = findMatches();
+                if (newMatches.size > 0) { comboCount++; await processMatches(newMatches); } 
+                else { checkGameEnd(); }
+            } else { checkGameEnd(); }
+        }
+
+        function renderBoardAfterGravity(skipDropAnim = false) {
+            boardEl.innerHTML = '';
+            for (let i = 0; i < grid.length; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'candy-cell'; cell.setAttribute('data-id', i);
+                if (grid[i] !== -1) {
+                    cell.innerHTML = candies[grid[i]];
+                    if(!skipDropAnim) cell.firstChild.classList.add('anim-drop');
+                }
+                cell.addEventListener('pointerdown', handleDragStart);
+                boardEl.appendChild(cell);
+            }
+        }
+
+        // --- 9. HINTS ---
+        function resetHintTimer() { clearTimeout(hintTimeout); clearHints(); hintTimeout = setTimeout(showHint, 5000); }
+        function clearHints() { document.querySelectorAll('.hint-active').forEach(el => el.classList.remove('hint-active')); }
+        function showHint() {
+            if (isProcessing || moves <= 0) return;
+            for (let r = 0; r < WIDTH; r++) {
+                for (let c = 0; c < WIDTH; c++) {
+                    const i = r * WIDTH + c;
+                    if (c < WIDTH - 1 && testSwap(i, i+1)) return;
+                    if (r < WIDTH - 1 && testSwap(i, i+WIDTH)) return;
+                }
+            }
+        }
+        function testSwap(i, j) {
+            let tGrid = [...grid]; [tGrid[i], tGrid[j]] = [tGrid[j], tGrid[i]];
+            if (tGrid[i]===12 || tGrid[j]===12 || hasMatch(tGrid)) {
+                const cA = document.querySelector(`[data-id="${i}"]`); const cB = document.querySelector(`[data-id="${j}"]`);
+                if(cA) cA.classList.add('hint-active'); if(cB) cB.classList.add('hint-active');
+                return true;
+            }
+            return false;
+        }
+        function hasMatch(arr) {
+            for (let r=0; r<WIDTH; r++) for (let c=0; c<WIDTH-2; c++) {
+                let i = r*WIDTH+c; let color = getBaseColor(arr[i]);
+                if (color !== -1 && getBaseColor(arr[i+1])===color && getBaseColor(arr[i+2])===color) return true;
+            }
+            for (let c=0; c<WIDTH; c++) for (let r=0; r<WIDTH-2; r++) {
+                let i = r*WIDTH+c; let color = getBaseColor(arr[i]);
+                if (color !== -1 && getBaseColor(arr[i+WIDTH])===color && getBaseColor(arr[i+WIDTH*2])===color) return true;
+            }
+            return false;
+        }
+
+        // --- 10. GAME END ---
+        function checkGameEnd() {
+            comboCount = 0; isProcessing = false;
+            if (moves <= 0) endGame(false);
+            else {
+                let validMoveExists = false;
+                for (let r=0; r<WIDTH; r++) for (let c=0; c<WIDTH; c++) {
+                    let i = r*WIDTH+c;
+                    if (c<WIDTH-1 && testSwap(i, i+1)) validMoveExists = true;
+                    if (r<WIDTH-1 && testSwap(i, i+WIDTH)) validMoveExists = true;
+                }
+                if (!validMoveExists) {
+                    iziToast.info({ title: 'No Moves!', message: 'Shuffling board...', position: 'center' });
+                    generateValidBoard(); renderBoard();
+                } else resetHintTimer();
+            }
+        }
+
+        function endGame(quit) {
+            clearTimeout(hintTimeout); AudioEngine.playWin();
+            const isDark = html.classList.contains('dark');
+            Swal.fire({
+                title: quit ? 'Game Quit' : 'Out of Moves!',
+                html: `<p style="font-size: 1.2rem; margin-bottom: 10px;">Final Score</p><h2 style="font-family: 'Kavoon', cursive; font-size: 3.5rem; color: #ff4757; margin: 0; text-shadow: 0 4px 10px rgba(0,0,0,0.1);">${score}</h2>`,
+                icon: quit ? 'info' : 'success', showCancelButton: true, confirmButtonColor: '#ff4757', cancelButtonColor: isDark ? '#34495e' : '#ecf0f1', confirmButtonText: 'Play Again', cancelButtonText: 'Main Menu', background: isDark ? '#1e272e' : '#ffffff', color: isDark ? '#ffffff' : '#000000', customClass: { popup: 'rounded-3xl shadow-2xl border-2 border-red-500/20', cancelButton: 'text-gray-800 dark:text-white' }
+            }).then((res) => {
+                if (res.isConfirmed) startGame();
+                else { switchScreen(document.getElementById('screen-game'), document.getElementById('screen-menu')); setTogglesVisibility(true); }
+            });
+        }
+        function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+        document.addEventListener('dblclick', function(e) { e.preventDefault(); }, { passive: false });
+    </script>
+</body>
+</html>
