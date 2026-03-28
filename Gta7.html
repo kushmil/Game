@@ -3,521 +3,882 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Find The God Anshu</title>
+    <title>City Explorer - Find Anshu</title>
     <style>
+        *, *::before, *::after { box-sizing: border-box; }
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            overflow: hidden; background-color: #000;
+            overflow: hidden; background: #000;
+            font-family: 'Segoe UI', sans-serif;
             user-select: none; -webkit-user-select: none; touch-action: none;
-            font-family: 'Courier New', Courier, monospace;
         }
-        
-        #canvas-container { 
-            width: 100%; height: 100%; display: block; 
-        }
-        
-        /* Start Screen Banner */
-        #start-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #000; color: #fff;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 999; cursor: pointer; text-align: center;
-        }
-        #start-screen h1 {
-            font-size: 8vw; margin: 0; text-transform: uppercase;
-            letter-spacing: 5px; text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
-        }
-        #start-screen p {
-            font-size: 3vw; color: #888; margin-top: 20px;
-            animation: pulse 1.5s infinite;
-        }
+        #canvas-container { width: 100%; height: 100%; display: block; }
 
-        @keyframes pulse {
-            0% { opacity: 0.3; }
-            50% { opacity: 1; }
-            100% { opacity: 0.3; }
+        /* ---- SPLASH SCREEN ---- */
+        #splash {
+            position: fixed; inset: 0; z-index: 9999;
+            background: radial-gradient(ellipse at center, #1a1a2e 0%, #000 100%);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: #fff; text-align: center; padding: 20px;
         }
-
-        /* UI Layer (Hidden text, only joystick) */
-        #ui-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; display: none;
+        #splash h1 { font-size: clamp(28px,6vw,52px); color: #ffd700; text-shadow: 0 0 30px #ffd700; margin: 0 0 8px; }
+        #splash .tagline { color: #aaa; font-size: 15px; margin-bottom: 24px; }
+        #splash .mission-box {
+            background: rgba(255,215,0,0.08); border: 1px solid #ffd700;
+            border-radius: 14px; padding: 18px 24px; max-width: 340px;
+            margin-bottom: 24px; text-align: left;
         }
+        #splash .mission-box h3 { color: #ffd700; margin: 0 0 10px; font-size: 15px; }
+        #splash .mission-box p { color: #ddd; font-size: 13px; margin: 6px 0; line-height: 1.5; }
+        #splash .controls-box {
+            background: rgba(255,255,255,0.05); border: 1px solid #444;
+            border-radius: 14px; padding: 14px 20px; max-width: 340px;
+            margin-bottom: 28px; text-align: left;
+        }
+        #splash .controls-box h3 { color: #fff; margin: 0 0 8px; font-size: 14px; }
+        #splash .controls-box p { color: #bbb; font-size: 12px; margin: 4px 0; }
+        #start-btn {
+            background: #ffd700; color: #000; border: none;
+            padding: 16px 48px; font-size: 18px; font-weight: bold;
+            border-radius: 50px; cursor: pointer;
+            box-shadow: 0 0 30px rgba(255,215,0,0.5);
+            animation: btnPulse 1.8s ease-in-out infinite;
+        }
+        @keyframes btnPulse { 0%,100%{transform:scale(1);box-shadow:0 0 20px rgba(255,215,0,0.4);} 50%{transform:scale(1.05);box-shadow:0 0 40px rgba(255,215,0,0.8);} }
 
-        /* Virtual Joystick */
+        /* ---- HUD ---- */
+        #hud {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 100;
+        }
+        /* Health bar */
+        #health-bar-wrap {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 200px; background: rgba(0,0,0,0.5); border-radius: 6px;
+            border: 1px solid #f55; overflow: hidden; pointer-events: none;
+        }
+        #health-bar { height: 10px; background: linear-gradient(90deg, #f55, #f90); width: 100%; transition: width 0.3s; }
+        #health-label { text-align: center; color: #fff; font-size: 11px; padding: 1px; }
+
+        /* Mission HUD */
+        #mission-hud {
+            position: absolute; top: 12px; right: 12px;
+            background: rgba(0,0,0,0.65); border: 1px solid #ffd700;
+            border-radius: 10px; padding: 10px 14px;
+            color: #ffd700; font-size: 13px;
+        }
+        #mission-hud .mtitle { font-size: 10px; color: #888; margin-bottom: 3px; }
+        #prox-wrap { width: 110px; height: 5px; background: #333; border-radius: 3px; margin-top: 5px; }
+        #prox-bar { height: 5px; background: #ffd700; border-radius: 3px; width: 0%; transition: width 0.2s; }
+
+        /* Alert flash */
+        #alert-flash {
+            position: absolute; inset: 0; pointer-events: none;
+            border: 6px solid rgba(255,0,0,0); transition: border-color 0.1s;
+        }
+        #alert-flash.active { border-color: rgba(255,0,0,0.5); }
+
+        /* Police warning */
+        #police-alert {
+            position: absolute; top: 12px; left: 12px;
+            background: rgba(255,0,0,0.8); color: #fff;
+            border-radius: 8px; padding: 6px 12px; font-size: 13px; font-weight: bold;
+            display: none;
+        }
+        #police-alert.show { display: block; }
+
+        /* Building prompt */
+        #building-prompt {
+            position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.75); color: #fff; border: 1px solid #fff;
+            border-radius: 8px; padding: 8px 16px; font-size: 13px;
+            display: none; white-space: nowrap;
+        }
+        #building-prompt.show { display: block; }
+
+        /* Joystick */
         #joystick-zone {
-            position: absolute; bottom: 60px; left: 60px;
-            width: 120px; height: 120px; background: rgba(0, 0, 0, 0.15);
+            position: absolute; bottom: 50px; left: 50px;
+            width: 130px; height: 130px; background: rgba(255,255,255,0.15);
             border-radius: 50%; display: none;
-            border: 2px solid rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(255,255,255,0.4);
             transform: translate(-50%, -50%); backdrop-filter: blur(4px);
+            pointer-events: none;
         }
         #joystick-knob {
             position: absolute; top: 50%; left: 50%;
-            width: 50px; height: 50px; background: rgba(0, 0, 0, 0.5);
-            border-radius: 50%; margin-top: -25px; margin-left: -25px;
+            width: 60px; height: 60px; background: rgba(255,255,255,0.8);
+            border-radius: 50%; margin-top: -30px; margin-left: -30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 6px; height: 6px;
+            background: white; border-radius: 50%;
+            transform: translate(-50%, -50%); mix-blend-mode: difference;
+        }
+
+        /* Enter button for mobile */
+        #enter-btn {
+            position: absolute; bottom: 90px; right: 20px;
+            width: 70px; height: 70px; border-radius: 50%;
+            background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5);
+            color: #fff; font-size: 11px; font-weight: bold; text-align: center;
+            line-height: 70px; display: none; pointer-events: all;
+            backdrop-filter: blur(4px); cursor: pointer;
+        }
+
+        /* Inside building overlay */
+        #inside-overlay {
+            position: absolute; inset: 0; pointer-events: none;
+            background: rgba(0,0,0,0); transition: background 0.4s;
+        }
+        #inside-overlay.inside { background: rgba(20,10,5,0.15); }
+
+        /* Win screen */
+        #win-screen {
+            display: none; position: fixed; inset: 0;
+            background: radial-gradient(ellipse, rgba(255,215,0,0.25) 0%, rgba(0,0,0,0.97) 80%);
+            color: #fff; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 9998; text-align: center; padding: 20px;
+        }
+        #win-screen.show { display: flex; }
+        #win-screen .we { font-size: 80px; animation: wp 1.5s infinite; }
+        @keyframes wp { 0%,100%{transform:scale(1);}50%{transform:scale(1.15);} }
+        #win-screen h1 { font-size: clamp(28px,7vw,48px); color: #ffd700; text-shadow: 0 0 30px #ffd700; }
+        #win-screen p { color: #ddd; font-size: 16px; max-width: 300px; line-height: 1.6; }
+        #win-screen button {
+            margin-top: 20px; padding: 14px 36px; font-size: 16px;
+            background: #ffd700; color: #000; border: none;
+            border-radius: 30px; font-weight: bold; cursor: pointer;
+        }
+
+        /* Dead screen */
+        #dead-screen {
+            display: none; position: fixed; inset: 0;
+            background: rgba(100,0,0,0.92);
+            color: #fff; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 9997; text-align: center;
+        }
+        #dead-screen.show { display: flex; }
+        #dead-screen h1 { font-size: 48px; color: #f55; }
+        #dead-screen p { color: #ddd; font-size: 16px; }
+        #dead-screen button {
+            margin-top: 20px; padding: 14px 36px; font-size: 16px;
+            background: #f55; color: #fff; border: none;
+            border-radius: 30px; font-weight: bold; cursor: pointer;
         }
     </style>
-    <!-- Three.js Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
 
-    <!-- Start Banner -->
-    <div id="start-screen">
-        <h1>Find the God Anshu</h1>
-        <p>Tap anywhere to enter the endless world</p>
+<!-- SPLASH -->
+<div id="splash">
+    <h1>🏙️ City Explorer</h1>
+    <p class="tagline">Find the God. Survive the Police.</p>
+    <div class="mission-box">
+        <h3>⚡ MISSION</h3>
+        <p>🔍 City mein <strong style="color:#ffd700">ANSHU</strong> ko dhundho — woh is city ka GOD hai!</p>
+        <p>🚔 Police tumhare peeche hai — bhaago!</p>
+        <p>🏢 5 buildings enter kar sakte ho — andar chhup sako!</p>
+        <p>❤️ Agar health khatam — GAME OVER!</p>
+    </div>
+    <div class="controls-box">
+        <h3>🎮 Controls</h3>
+        <p>📱 Mobile: Left = Move | Right = Look</p>
+        <p>💻 PC: WASD = Move | Click+Drag = Look</p>
+        <p>🏢 Building ke paas: E key / Enter button</p>
+    </div>
+    <button id="start-btn">▶ GAME SHURU KARO</button>
+</div>
+
+<!-- GAME -->
+<div id="canvas-container"></div>
+
+<div id="hud">
+    <div id="alert-flash"></div>
+    <div id="inside-overlay"></div>
+
+    <div id="police-alert">🚨 POLICE ALERT! BHAAGO!</div>
+
+    <div id="mission-hud">
+        <div class="mtitle">🎯 MISSION</div>
+        <div>Dhundo: <strong style="color:#ffd700">ANSHU</strong></div>
+        <div id="prox-wrap"><div id="prox-bar"></div></div>
     </div>
 
-    <div id="canvas-container"></div>
-    
-    <!-- Game UI (No Text) -->
-    <div id="ui-layer">
-        <div id="joystick-zone"><div id="joystick-knob"></div></div>
+    <div id="health-bar-wrap">
+        <div id="health-bar"></div>
+        <div id="health-label">❤️ HEALTH: 100</div>
     </div>
 
-    <script>
-        // ==========================================
-        // 1. GAME INITIALIZATION & FULLSCREEN
-        // ==========================================
-        const startScreen = document.getElementById('start-screen');
-        const uiLayer = document.getElementById('ui-layer');
+    <div id="building-prompt">🏢 [E] Andar Jao</div>
+    <div id="enter-btn">🚪<br>Enter</div>
 
-        startScreen.addEventListener('click', () => {
-            // Force Fullscreen
-            const docEl = document.documentElement;
-            if (docEl.requestFullscreen) docEl.requestFullscreen();
-            else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
-            
-            // Force Landscape Orientation on Phones
-            if (screen.orientation && screen.orientation.lock) {
-                screen.orientation.lock('landscape').catch((e) => console.log("Orientation lock not supported"));
+    <div id="crosshair"></div>
+    <div id="joystick-zone"><div id="joystick-knob"></div></div>
+</div>
+
+<div id="win-screen">
+    <div class="we">⚡</div>
+    <h1>GOD FOUND!</h1>
+    <p>Tumne <strong style="color:#ffd700">ANSHU</strong> — City ke God — ko dhundh liya!<br><br>🌟 Mission Complete! 🌟</p>
+    <button onclick="location.reload()">🔄 Phir Khelein</button>
+</div>
+
+<div id="dead-screen">
+    <h1>💀 GAME OVER</h1>
+    <p>Police ne pakad liya!<br>Dobara try karo!</p>
+    <button onclick="location.reload()">🔄 Phir Khelein</button>
+</div>
+
+<script>
+// ============================================================
+// FIX: Add missing CanvasRenderingContext2D.roundRect polyfill
+// ============================================================
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+    CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+        if (w < 2 * r) r = w / 2;
+        if (h < 2 * r) r = h / 2;
+        this.moveTo(x + r, y);
+        this.lineTo(x + w - r, y);
+        this.quadraticCurveTo(x + w, y, x + w, y + r);
+        this.lineTo(x + w, y + h - r);
+        this.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        this.lineTo(x + r, y + h);
+        this.quadraticCurveTo(x, y + h, x, y + h - r);
+        this.lineTo(x, y + r);
+        this.quadraticCurveTo(x, y, x + r, y);
+        this.closePath();
+        return this;
+    };
+}
+
+// ============================================================
+// FULLSCREEN UTILITY — works on mobile + desktop
+// ============================================================
+function goFullscreen() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (req) req.call(el).catch(() => {});
+}
+
+document.getElementById('start-btn').addEventListener('click', () => {
+    goFullscreen();
+    document.getElementById('splash').style.display = 'none';
+    initGame();
+});
+
+// ============================================================
+// GAME INIT
+// ============================================================
+function initGame() {
+
+// ---- SCENE ----
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+scene.fog = new THREE.FogExp2(0x87CEEB, 0.008);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 500);
+camera.position.set(0, 2, 0);
+camera.rotation.order = "YXZ";
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+container.appendChild(renderer.domElement);
+
+// Lighting
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const sunLight = new THREE.DirectionalLight(0xfffaee, 1.2);
+sunLight.position.set(100, 150, 50);
+sunLight.castShadow = true;
+sunLight.shadow.camera.near = 10; sunLight.shadow.camera.far = 300;
+const d = 100;
+sunLight.shadow.camera.left = -d; sunLight.shadow.camera.right = d;
+sunLight.shadow.camera.top = d; sunLight.shadow.camera.bottom = -d;
+sunLight.shadow.mapSize.width = 1024; sunLight.shadow.mapSize.height = 1024;
+scene.add(sunLight);
+
+// ---- TEXTURES ----
+function makeTex(size, fn) {
+    const c = document.createElement('canvas'); c.width = size; c.height = size;
+    const ctx = c.getContext('2d'); fn(ctx, size);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; return t;
+}
+const asphaltTex = makeTex(512, (ctx, s) => {
+    ctx.fillStyle = '#222'; ctx.fillRect(0,0,s,s);
+    for(let i=0;i<60000;i++){ ctx.fillStyle=Math.random()>.5?'#1a1a1a':'#2a2a2a'; ctx.fillRect(Math.random()*s,Math.random()*s,2,2); }
+    // removed faulty arrow function that referenced undefined t/renderer
+});
+asphaltTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+const concreteTex = makeTex(256, (ctx, s) => {
+    ctx.fillStyle = '#777'; ctx.fillRect(0,0,s,s);
+    for(let i=0;i<15000;i++){ ctx.fillStyle=Math.random()>.5?'#666':'#888'; ctx.fillRect(Math.random()*s,Math.random()*s,1,1); }
+    ctx.strokeStyle='#555'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(0,128); ctx.lineTo(256,128); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(128,0); ctx.lineTo(128,256); ctx.stroke();
+});
+
+function makeBuildingTex(color) {
+    return makeTex(512, (ctx, s) => {
+        ctx.fillStyle = color; ctx.fillRect(0,0,s,s);
+        const cols=8, rows=8, pad=10;
+        const w=(s/cols)-pad*2, h=(s/rows)-pad*2;
+        for(let i=0;i<cols;i++) for(let j=0;j<rows;j++) {
+            const px=i*(s/cols)+pad, py=j*(s/rows)+pad;
+            const lit=Math.random()>.65;
+            ctx.fillStyle=lit?'#ffebb5':'#112'; ctx.fillRect(px,py,w,h);
+            if(lit){ ctx.fillStyle='rgba(255,255,255,0.2)'; ctx.beginPath(); ctx.moveTo(px,py); ctx.lineTo(px+w,py); ctx.lineTo(px,py+h); ctx.fill(); }
+        }
+    });
+}
+const bColors=['#4a4a4a','#5a4a4a','#4a5a5a','#5a5a4a','#303030'];
+const bTextures = bColors.map(makeBuildingTex);
+
+// Interior floor texture
+const floorTex = makeTex(256, (ctx, s) => {
+    ctx.fillStyle = '#c8a96e'; ctx.fillRect(0,0,s,s);
+    ctx.strokeStyle = '#b8956a'; ctx.lineWidth = 2;
+    for(let i=0;i<s;i+=32){ ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,s); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(s,i); ctx.stroke(); }
+});
+const wallTex = makeTex(256, (ctx, s) => {
+    ctx.fillStyle = '#d4c4a8'; ctx.fillRect(0,0,s,s);
+    for(let i=0;i<10000;i++){ ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.05})`; ctx.fillRect(Math.random()*s,Math.random()*s,2,2); }
+});
+const ceilTex = makeTex(256, (ctx, s) => { ctx.fillStyle='#f0ebe0'; ctx.fillRect(0,0,s,s); });
+
+// ---- WORLD ----
+const BLOCK_SIZE = 40;
+const GRID_SIZE = 12;
+const WORLD_OFFSET = (GRID_SIZE * BLOCK_SIZE) / 2;
+
+const groundGeo = new THREE.PlaneGeometry(GRID_SIZE*BLOCK_SIZE, GRID_SIZE*BLOCK_SIZE);
+asphaltTex.repeat.set(GRID_SIZE*4, GRID_SIZE*4);
+const ground = new THREE.Mesh(groundGeo, new THREE.MeshLambertMaterial({ map: asphaltTex }));
+ground.rotation.x = -Math.PI/2; ground.receiveShadow = true; scene.add(ground);
+
+const buildings = []; // collision boxes
+// Enterable buildings: 5 specific ones
+const enterableBuildings = [];
+const ENTERABLE_INDICES = new Set([5, 14, 27, 38, 50]); // building counter indices
+let buildingCounter = 0;
+
+const lineMat = new THREE.MeshBasicMaterial({ color: 0xFFD700 });
+
+for (let i = 0; i < GRID_SIZE; i++) {
+    for (let j = 0; j < GRID_SIZE; j++) {
+        const cx = (i*BLOCK_SIZE) - WORLD_OFFSET + (BLOCK_SIZE/2);
+        const cz = (j*BLOCK_SIZE) - WORLD_OFFSET + (BLOCK_SIZE/2);
+
+        const sWidth=28;
+        const sidewalk = new THREE.Mesh(
+            new THREE.BoxGeometry(sWidth,0.2,sWidth),
+            new THREE.MeshLambertMaterial({ map: concreteTex })
+        );
+        sidewalk.position.set(cx,0.1,cz); sidewalk.receiveShadow=true; scene.add(sidewalk);
+
+        if (Math.random() > 0.1) {
+            const bHeight = 15 + Math.random()*45;
+            const bWidth = 24;
+            const bTex = bTextures[Math.floor(Math.random()*bTextures.length)].clone();
+            bTex.repeat.set(2, bHeight/12); bTex.needsUpdate = true;
+            const bMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(bWidth,bHeight,bWidth),
+                new THREE.MeshLambertMaterial({ map: bTex })
+            );
+            bMesh.position.set(cx, bHeight/2+0.2, cz);
+            bMesh.castShadow = true; bMesh.receiveShadow = true;
+            scene.add(bMesh);
+
+            const bData = {
+                minX: cx-bWidth/2-1, maxX: cx+bWidth/2+1,
+                minZ: cz-bWidth/2-1, maxZ: cz+bWidth/2+1,
+                cx, cz, bWidth, bHeight,
+                enterable: false
+            };
+
+            if (ENTERABLE_INDICES.has(buildingCounter)) {
+                bData.enterable = true;
+                // Green door marker
+                const doorMat = new THREE.MeshBasicMaterial({ color: 0x00ff88 });
+                const door = new THREE.Mesh(new THREE.BoxGeometry(2, 3, 0.2), doorMat);
+                door.position.set(cx, 1.6, cz - bWidth/2 - 0.1);
+                scene.add(door);
+                // Door light
+                const dLight = new THREE.PointLight(0x00ff88, 1.5, 10);
+                dLight.position.set(cx, 2, cz - bWidth/2 - 1);
+                scene.add(dLight);
+                // "ENTER" label sprite
+                const lc = document.createElement('canvas'); lc.width=128; lc.height=48;
+                const lx = lc.getContext('2d');
+                lx.fillStyle='rgba(0,255,136,0.85)'; 
+                lx.roundRect(4,4,120,40,8); lx.fill();
+                lx.fillStyle='#000'; lx.font='bold 18px Arial'; lx.textAlign='center'; lx.fillText('🏢 ENTER', 64, 28);
+                const ls = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(lc), transparent: true }));
+                ls.scale.set(3,1,1); ls.position.set(cx, 5, cz-bWidth/2-0.5);
+                scene.add(ls);
+
+                enterableBuildings.push(bData);
             }
-
-            // Hide Banner, Show UI
-            startScreen.style.display = 'none';
-            uiLayer.style.display = 'block';
-
-            // Play God Voice
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance("I am Anshu.");
-                utterance.pitch = 0.2; // Deep god-like pitch
-                utterance.rate = 0.7;  // Slow, dramatic speed
-                utterance.volume = 1.0;
-                window.speechSynthesis.speak(utterance);
-            }
-        });
-
-        // ==========================================
-        // 2. SCENE SETUP (DAYTIME)
-        // ==========================================
-        const container = document.getElementById('canvas-container');
-        const scene = new THREE.Scene();
-        
-        // Daytime Environment with Rare/Light Fog
-        const skyColor = new THREE.Color(0x87CEEB); // Bright Sky Blue
-        scene.background = skyColor;
-        scene.fog = new THREE.FogExp2(skyColor, 0.003); // Very light fog, high visibility
-
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 400);
-        camera.position.set(0, 2, 0); 
-        camera.rotation.order = "YXZ";
-
-        const renderer = new THREE.WebGLRenderer({ antialias: false }); 
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
-        container.appendChild(renderer.domElement);
-
-        // Bright Daytime Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-        scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0xfffaee, 1.2); // Sun
-        dirLight.position.set(100, 200, 50);
-        scene.add(dirLight);
-
-        // ==========================================
-        // 3. MASSIVE WORLD GENERATION (INSTANCED MESH)
-        // ==========================================
-        const GRID_SIZE = 100; // 100x100 blocks = 10,000 city blocks!
-        const BLOCK_SIZE = 40;
-        const OFFSET = (GRID_SIZE * BLOCK_SIZE) / 2;
-
-        // Collision Map
-        const worldGrid = new Array(GRID_SIZE).fill(0).map(() => new Array(GRID_SIZE).fill(null));
-
-        // Textures
-        function createProceduralTexture(baseColor, isWindowed) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = baseColor; ctx.fillRect(0,0,256,256);
-            
-            if (isWindowed) {
-                for(let i=0; i<8; i++) {
-                    for(let j=0; j<8; j++) {
-                        if(Math.random() > 0.4) {
-                            // Daytime windows (mostly dark glass reflecting blue sky)
-                            ctx.fillStyle = Math.random() > 0.8 ? '#aaccff' : '#223344';
-                            ctx.fillRect(i*32 + 4, j*32 + 4, 24, 24);
-                        }
-                    }
-                }
-            }
-            const tex = new THREE.CanvasTexture(canvas);
-            tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-            return tex;
+            buildings.push(bData);
+            buildingCounter++;
         }
 
-        const asphaltTex = createProceduralTexture('#444', false);
-        asphaltTex.repeat.set(GRID_SIZE * 2, GRID_SIZE * 2);
-        const concreteTex = createProceduralTexture('#888', false);
-        const buildingColors =['#999', '#aaa', '#7a8b9c', '#bcaea0', '#666'];
-        const buildingMats = buildingColors.map(c => new THREE.MeshLambertMaterial({ map: createProceduralTexture(c, true) }));
+        // Road lines
+        if(i<GRID_SIZE-1){ const vl=new THREE.Mesh(new THREE.PlaneGeometry(2,BLOCK_SIZE),lineMat); vl.rotation.x=-Math.PI/2; vl.position.set(cx+BLOCK_SIZE/2,0.02,cz); scene.add(vl); }
+        if(j<GRID_SIZE-1){ const hl=new THREE.Mesh(new THREE.PlaneGeometry(BLOCK_SIZE,2),lineMat); hl.rotation.x=-Math.PI/2; hl.position.set(cx,0.02,cz+BLOCK_SIZE/2); scene.add(hl); }
+    }
+}
 
-        // Base Ground (Endless Road)
-        const groundGeo = new THREE.PlaneGeometry(GRID_SIZE * BLOCK_SIZE, GRID_SIZE * BLOCK_SIZE);
-        const groundMat = new THREE.MeshLambertMaterial({ map: asphaltTex });
-        const ground = new THREE.Mesh(groundGeo, groundMat);
-        ground.rotation.x = -Math.PI / 2;
-        scene.add(ground);
+// ---- ENTERABLE BUILDING INTERIORS ----
+// Each enterable building gets an interior room
+enterableBuildings.forEach(b => {
+    const W=b.bWidth-2, H=8, D=b.bWidth-2;
+    const iGrp = new THREE.Group();
+    iGrp.position.set(b.cx, 0.2, b.cz);
+    iGrp.visible = false;
+    // Floor
+    const fl=new THREE.Mesh(new THREE.PlaneGeometry(W,D), new THREE.MeshLambertMaterial({map:floorTex}));
+    fl.rotation.x=-Math.PI/2; fl.position.y=0.01; floorTex.repeat.set(4,4); iGrp.add(fl);
+    // Ceiling
+    const cl=new THREE.Mesh(new THREE.PlaneGeometry(W,D), new THREE.MeshLambertMaterial({map:ceilTex}));
+    cl.rotation.x=Math.PI/2; cl.position.y=H; iGrp.add(cl);
+    // Walls
+    [[0,H/2,D/2,W,H,0.3],[0,H/2,-D/2,W,H,0.3],[W/2,H/2,0,0.3,H,D],[-W/2,H/2,0,0.3,H,D]].forEach(([x,y,z,ww,hh,dd]) => {
+        const wm=new THREE.Mesh(new THREE.BoxGeometry(ww,hh,dd||0.3), new THREE.MeshLambertMaterial({map:wallTex}));
+        wm.position.set(x,y,z); iGrp.add(wm);
+    });
+    // Interior light
+    const il=new THREE.PointLight(0xffeedd,2,20); il.position.set(0,H-0.5,0); iGrp.add(il);
+    // Some furniture (boxes as props)
+    [[4,0.5,4,'#8B4513'],[-4,0.5,-3,'#6B4423'],[0,0.5,3,'#5a3a2a']].forEach(([x,y,z,col]) => {
+        const box=new THREE.Mesh(new THREE.BoxGeometry(2,1,1), new THREE.MeshLambertMaterial({color:col}));
+        box.position.set(x,y,z); iGrp.add(box);
+    });
+    scene.add(iGrp);
+    b.interiorGroup = iGrp;
+});
 
-        // Geometries for instancing
-        const sGeo = new THREE.BoxGeometry(1, 1, 1); 
-        const bGeo = new THREE.BoxGeometry(1, 1, 1);
-        const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 4, 5);
-        const leavesGeo = new THREE.ConeGeometry(2.5, 6, 5);
+// ---- NPCs ----
+const npcs = [];
+const npcCols = [0xff4444, 0x4444ff, 0x44ff44, 0xffff44, 0xff44ff, 0xffffff];
+function createNPC(x, z) {
+    const g = new THREE.Group(); g.position.set(x, 0, z);
+    const sm = new THREE.MeshLambertMaterial({ color: 0xffccaa });
+    const sh = new THREE.MeshLambertMaterial({ color: npcCols[Math.floor(Math.random()*npcCols.length)] });
+    const pm = new THREE.MeshLambertMaterial({ color: 0x222222 });
+    const torso=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.7,0.3),sh); torso.position.y=1.05; g.add(torso);
+    const head=new THREE.Mesh(new THREE.BoxGeometry(0.35,0.35,0.35),sm); head.position.y=1.6; g.add(head);
+    const lL=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.7,0.2),pm); lL.position.set(-0.15,0.35,0); g.add(lL);
+    const lR=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.7,0.2),pm); lR.position.set(0.15,0.35,0); g.add(lR);
+    const aL=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.6,0.15),sh); aL.position.set(-0.35,1.1,0); g.add(aL);
+    const aR=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.6,0.15),sh); aR.position.set(0.35,1.1,0); g.add(aR);
+    scene.add(g);
+    npcs.push({ mesh:g, legL:lL, legR:lR, armL:aL, armR:aR, walkCycle:Math.random()*10, speed:1.5+Math.random()*1.5, direction:new THREE.Vector3(Math.random()>.5?1:-1,0,0), timer:0 });
+}
+for(let k=0;k<50;k++) {
+    const cx=(Math.floor(Math.random()*GRID_SIZE)*BLOCK_SIZE)-WORLD_OFFSET+(BLOCK_SIZE/2);
+    const cz=(Math.floor(Math.random()*GRID_SIZE)*BLOCK_SIZE)-WORLD_OFFSET+(BLOCK_SIZE/2);
+    createNPC(cx+12.5, cz+(Math.random()*20-10));
+}
 
-        const sMat = new THREE.MeshLambertMaterial({ map: concreteTex });
-        const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5c4033 });
-        const leavesMat = new THREE.MeshLambertMaterial({ color: 0x228b22 });
+// ---- POLICE NPCs ----
+const policeList = [];
+function createPolice(x, z) {
+    const g = new THREE.Group(); g.position.set(x, 0, z);
+    const blueMat = new THREE.MeshLambertMaterial({ color: 0x1a1aff });
+    const skinMat = new THREE.MeshLambertMaterial({ color: 0xffccaa });
+    const blackMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+    const yellowMat = new THREE.MeshLambertMaterial({ color: 0xffdd00 });
+    // Torso (uniform)
+    const torso=new THREE.Mesh(new THREE.BoxGeometry(0.6,0.75,0.35),blueMat); torso.position.y=1.1; g.add(torso);
+    // Badge
+    const badge=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.12,0.05),yellowMat); badge.position.set(-0.15,1.2,-0.18); g.add(badge);
+    // Head
+    const head=new THREE.Mesh(new THREE.BoxGeometry(0.38,0.38,0.38),skinMat); head.position.y=1.65; g.add(head);
+    // Cap
+    const cap=new THREE.Mesh(new THREE.BoxGeometry(0.44,0.15,0.44),blackMat); cap.position.y=1.9; g.add(cap);
+    const brim=new THREE.Mesh(new THREE.BoxGeometry(0.55,0.06,0.35),blackMat); brim.position.set(0,1.84,-0.1); g.add(brim);
+    // Legs
+    const lL=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.75,0.22),blackMat); lL.position.set(-0.17,0.37,0); g.add(lL);
+    const lR=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.75,0.22),blackMat); lR.position.set(0.17,0.37,0); g.add(lR);
+    // Arms
+    const aL=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.65,0.18),blueMat); aL.position.set(-0.4,1.1,0); g.add(aL);
+    const aR=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.65,0.18),blueMat); aR.position.set(0.4,1.1,0); g.add(aR);
+    // Gun (right hand)
+    const gun=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.15,0.35),blackMat); gun.position.set(0.4,0.85,-0.2); g.add(gun);
+    // Siren light on head
+    const siren=new THREE.Mesh(new THREE.SphereGeometry(0.08,6,6), new THREE.MeshBasicMaterial({color:0xff2222}));
+    siren.position.set(0,2.05,0); g.add(siren);
+    // Police label
+    const lc=document.createElement('canvas'); lc.width=128; lc.height=40;
+    const lctx=lc.getContext('2d');
+    lctx.fillStyle='rgba(0,0,200,0.8)'; lctx.roundRect(2,2,124,36,6); lctx.fill();
+    lctx.fillStyle='#fff'; lctx.font='bold 16px Arial'; lctx.textAlign='center'; lctx.fillText('🚔 POLICE', 64, 25);
+    const ls=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(lc),transparent:true}));
+    ls.scale.set(2.5,0.8,1); ls.position.y=2.8; g.add(ls);
+    scene.add(g);
+    policeList.push({
+        mesh:g, legL:lL, legR:lR, armL:aL, armR:aR,
+        siren, sirenTimer:0,
+        walkCycle:0, speed:3.5+Math.random()*1.5,
+        shootCooldown:0, shootTimer:0,
+        state:'patrol', // patrol | chase
+        patrolDir:new THREE.Vector3(Math.random()>.5?1:-1,0,0),
+        patrolTimer:0
+    });
+}
+// Fixed: replaced unicode minus with standard hyphen-minus
+const policeSpawns=[[60,-60],[-60,60],[80,80],[-80,-80],[0,100]];
+policeSpawns.forEach(([x,z])=>createPolice(x,z));
 
-        const totalBlocks = GRID_SIZE * GRID_SIZE;
-        const maxBuildingsPerType = Math.floor(totalBlocks / 5);
-        
-        const sidewalkIM = new THREE.InstancedMesh(sGeo, sMat, totalBlocks);
-        const buildingIMs = buildingMats.map(mat => new THREE.InstancedMesh(bGeo, mat, maxBuildingsPerType));
-        const trunkIM = new THREE.InstancedMesh(trunkGeo, trunkMat, totalBlocks * 4);
-        const leavesIM = new THREE.InstancedMesh(leavesGeo, leavesMat, totalBlocks * 4);
+// Police bullet effects
+const bullets = [];
+function spawnBullet(from) {
+    const geo=new THREE.SphereGeometry(0.08,4,4);
+    const mat=new THREE.MeshBasicMaterial({color:0xffff00});
+    const bMesh=new THREE.Mesh(geo,mat);
+    const dx=camera.position.x-from.x, dz=camera.position.z-from.z;
+    const dist=Math.sqrt(dx*dx+dz*dz);
+    const dir=new THREE.Vector3(dx/dist,0,dz/dist);
+    bMesh.position.set(from.x, 1.2, from.z);
+    scene.add(bMesh);
+    bullets.push({ mesh:bMesh, dir, life:3 });
+}
 
-        scene.add(sidewalkIM);
-        buildingIMs.forEach(im => scene.add(im));
-        scene.add(trunkIM);
-        scene.add(leavesIM);
+// ---- ANSHU GOD ----
+let anshuMesh, anshuAura, gameWon=false;
+function createAnshu() {
+    const g=new THREE.Group(); g.position.set(65,-10,-85);
+    const goldMat=new THREE.MeshLambertMaterial({color:0xFFD700,emissive:0xAA8800,emissiveIntensity:0.6});
+    const robeMat=new THREE.MeshLambertMaterial({color:0xffffff,emissive:0x8888ff,emissiveIntensity:0.4});
+    const auraMat=new THREE.MeshBasicMaterial({color:0xFFD700,transparent:true,opacity:0.15,side:THREE.DoubleSide});
+    const torso=new THREE.Mesh(new THREE.BoxGeometry(0.8,1.0,0.45),robeMat); torso.position.y=1.15; g.add(torso);
+    const head=new THREE.Mesh(new THREE.BoxGeometry(0.48,0.48,0.48),goldMat); head.position.y=1.85; g.add(head);
+    const halo=new THREE.Mesh(new THREE.TorusGeometry(0.38,0.05,8,24), new THREE.MeshBasicMaterial({color:0xFFD700}));
+    halo.position.y=2.25; halo.rotation.x=Math.PI/2; g.add(halo);
+    const lL=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.65,0.24),robeMat); lL.position.set(-0.2,0.4,0); g.add(lL);
+    const lR=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.65,0.24),robeMat); lR.position.set(0.2,0.4,0); g.add(lR);
+    const aL=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.75,0.2),robeMat); aL.position.set(-0.52,1.2,0); g.add(aL);
+    const aR=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.75,0.2),robeMat); aR.position.set(0.52,1.2,0); g.add(aR);
+    anshuAura=new THREE.Mesh(new THREE.SphereGeometry(2,12,12),auraMat); anshuAura.position.y=1.2; g.add(anshuAura);
+    const gl=new THREE.PointLight(0xFFD700,3,20); gl.position.y=2; g.add(gl);
+    // Extra particles (small spheres orbiting)
+    for(let i=0;i<6;i++){
+        const p=new THREE.Mesh(new THREE.SphereGeometry(0.08,4,4),new THREE.MeshBasicMaterial({color:0xFFD700}));
+        p.position.set(Math.cos(i/6*Math.PI*2)*2,1.5,Math.sin(i/6*Math.PI*2)*2);
+        p._angle=i/6*Math.PI*2; p._isParticle=true; g.add(p);
+    }
+    // Label
+    const lc=document.createElement('canvas'); lc.width=256; lc.height=64;
+    const lctx=lc.getContext('2d');
+    lctx.fillStyle='rgba(0,0,0,0.7)'; lctx.roundRect(4,4,248,56,12); lctx.fill();
+    lctx.fillStyle='#FFD700'; lctx.font='bold 26px Arial'; lctx.textAlign='center'; lctx.fillText('⚡ ANSHU ⚡',128,34);
+    lctx.fillStyle='#fff'; lctx.font='13px Arial'; lctx.fillText('[ City Ka God ]',128,52);
+    const ls=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(lc),transparent:true}));
+    ls.scale.set(3.5,0.88,1); ls.position.y=3.5; g.add(ls);
+    scene.add(g); anshuMesh=g;
+    anshuMesh._walkCycle=0;
+}
+createAnshu();
 
-        const dummy = new THREE.Object3D();
-        let bIndices =[0,0,0,0,0];
-        let treeIndex = 0;
-        let sIndex = 0;
+// ---- PLAYER STATE ----
+let playerHealth=100, isDead=false;
+let insideBuilding=null; // which enterable building player is in
+let insidePos=null; // save outside pos
+let gameStarted=true;
 
-        // Pick a random block for God Anshu to hide
-        const anshuGridX = Math.floor(Math.random() * (GRID_SIZE - 4)) + 2;
-        const anshuGridZ = Math.floor(Math.random() * (GRID_SIZE - 4)) + 2;
+function updateHealthUI() {
+    document.getElementById('health-bar').style.width=playerHealth+'%';
+    document.getElementById('health-label').textContent=`❤️ HEALTH: ${playerHealth}`;
+    if(playerHealth<=30) document.getElementById('health-bar').style.background='#f55';
+    else if(playerHealth<=60) document.getElementById('health-bar').style.background='linear-gradient(90deg,#f90,#ff0)';
+    else document.getElementById('health-bar').style.background='linear-gradient(90deg,#f55,#f90)';
+}
+function takeDamage(amt) {
+    if(isDead||gameWon) return;
+    playerHealth=Math.max(0,playerHealth-amt);
+    updateHealthUI();
+    document.getElementById('alert-flash').classList.add('active');
+    setTimeout(()=>document.getElementById('alert-flash').classList.remove('active'),120);
+    if(playerHealth<=0 && !isDead) {
+        isDead=true;
+        setTimeout(()=>{ document.getElementById('dead-screen').classList.add('show'); },400);
+    }
+}
+updateHealthUI();
 
-        for (let i = 0; i < GRID_SIZE; i++) {
-            for (let j = 0; j < GRID_SIZE; j++) {
-                const cx = (i * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
-                const cz = (j * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
+// ---- CONTROLS ----
+let moveForward=0, moveRight=0, yaw=0, pitch=0;
+let moveTouchId=null, lookTouchId=null, startMoveX=0, startMoveY=0, lastLookX=0, lastLookY=0;
+const joystickZone=document.getElementById('joystick-zone');
+const joystickKnob=document.getElementById('joystick-knob');
+const maxJoyDist=45;
+let isMouseDown=false;
+const keys={w:false,a:false,s:false,d:false,ArrowUp:false,ArrowDown:false,ArrowLeft:false,ArrowRight:false,e:false,E:false};
 
-                // Add Sidewalk
-                dummy.position.set(cx, 0.1, cz);
-                dummy.scale.set(28, 0.2, 28);
-                dummy.updateMatrix();
-                sidewalkIM.setMatrixAt(sIndex++, dummy.matrix);
+document.addEventListener('touchstart', (e)=>{
+    for(let i=0;i<e.changedTouches.length;i++){
+        let t=e.changedTouches[i];
+        if(t.clientX<window.innerWidth/2 && moveTouchId===null){
+            moveTouchId=t.identifier; startMoveX=t.clientX; startMoveY=t.clientY;
+            joystickZone.style.display='block'; joystickZone.style.left=startMoveX+'px'; joystickZone.style.top=startMoveY+'px';
+            joystickKnob.style.transform='translate(0px,0px)';
+        } else if(t.clientX>=window.innerWidth/2 && lookTouchId===null){
+            lookTouchId=t.identifier; lastLookX=t.clientX; lastLookY=t.clientY;
+        }
+    }
+},{passive:false});
 
-                // If this is God Anshu's block, skip building
-                if (i === anshuGridX && j === anshuGridZ) continue;
+document.addEventListener('touchmove', (e)=>{
+    e.preventDefault();
+    for(let i=0;i<e.changedTouches.length;i++){
+        let t=e.changedTouches[i];
+        if(t.identifier===moveTouchId){
+            let dx=t.clientX-startMoveX, dy=t.clientY-startMoveY;
+            let dist=Math.sqrt(dx*dx+dy*dy);
+            if(dist>maxJoyDist){dx=(dx/dist)*maxJoyDist;dy=(dy/dist)*maxJoyDist;}
+            joystickKnob.style.transform=`translate(${dx}px,${dy}px)`;
+            moveRight=dx/maxJoyDist; moveForward=dy/maxJoyDist;
+        } else if(t.identifier===lookTouchId){
+            let dx=t.clientX-lastLookX, dy=t.clientY-lastLookY;
+            yaw-=dx*0.006; pitch-=dy*0.006;
+            pitch=Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1,pitch));
+            lastLookX=t.clientX; lastLookY=t.clientY;
+        }
+    }
+},{passive:false});
 
-                // Add Building (85% chance)
-                if (Math.random() > 0.15) {
-                    const bHeight = 20 + Math.random() * 80; 
-                    const bWidth = 22 + Math.random() * 4;
-                    const type = Math.floor(Math.random() * 5);
-                    
-                    if (bIndices[type] < maxBuildingsPerType) {
-                        dummy.position.set(cx, bHeight/2, cz);
-                        dummy.scale.set(bWidth, bHeight, bWidth);
-                        dummy.updateMatrix();
-                        buildingIMs[type].setMatrixAt(bIndices[type]++, dummy.matrix);
+function endTouch(e){
+    for(let i=0;i<e.changedTouches.length;i++){
+        let t=e.changedTouches[i];
+        if(t.identifier===moveTouchId){moveTouchId=null;moveForward=0;moveRight=0;joystickZone.style.display='none';}
+        if(t.identifier===lookTouchId) lookTouchId=null;
+    }
+}
+document.addEventListener('touchend',endTouch);
+document.addEventListener('touchcancel',endTouch);
 
-                        worldGrid[i][j] = {
-                            type: 'building',
-                            minX: cx - bWidth/2 - 1, maxX: cx + bWidth/2 + 1,
-                            minZ: cz - bWidth/2 - 1, maxZ: cz + bWidth/2 + 1
-                        };
-                    }
-                }
+document.addEventListener('keydown',(e)=>{ if(keys.hasOwnProperty(e.key)) keys[e.key]=true; if(e.key==='e'||e.key==='E') tryEnterBuilding(); });
+document.addEventListener('keyup',(e)=>{ if(keys.hasOwnProperty(e.key)) keys[e.key]=false; });
+document.addEventListener('mousedown',(e)=>{ isMouseDown=true; lastLookX=e.clientX; lastLookY=e.clientY; });
+document.addEventListener('mouseup',()=>isMouseDown=false);
+document.addEventListener('mousemove',(e)=>{
+    if(isMouseDown){ let dx=e.clientX-lastLookX,dy=e.clientY-lastLookY; yaw-=dx*0.004; pitch-=dy*0.004; pitch=Math.max(-Math.PI/2.1,Math.min(Math.PI/2.1,pitch)); lastLookX=e.clientX; lastLookY=e.clientY; }
+});
 
-                // Add Trees
-                for(let t=0; t<4; t++) {
-                    if(Math.random() > 0.5) {
-                        const tx = cx + (Math.random() > 0.5 ? 12 : -12);
-                        const tz = cz + (Math.random() > 0.5 ? 12 : -12);
-                        
-                        dummy.position.set(tx, 2, tz);
-                        dummy.scale.set(1, 1, 1);
-                        dummy.updateMatrix();
-                        trunkIM.setMatrixAt(treeIndex, dummy.matrix);
-                        
-                        dummy.position.set(tx, 5, tz);
-                        dummy.updateMatrix();
-                        leavesIM.setMatrixAt(treeIndex, dummy.matrix);
-                        
-                        treeIndex++;
-                    }
-                }
-            }
+// Enter button (mobile)
+const enterBtn=document.getElementById('enter-btn');
+enterBtn.addEventListener('touchstart',(e)=>{e.preventDefault();tryEnterBuilding();},{passive:false});
+enterBtn.addEventListener('click',tryEnterBuilding);
+
+window.addEventListener('resize',()=>{ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); });
+
+// ---- BUILDING ENTER/EXIT ----
+function tryEnterBuilding() {
+    if(insideBuilding) {
+        // Exit
+        insideBuilding.interiorGroup.visible=false;
+        camera.position.set(insidePos.x, 2, insidePos.z);
+        insideBuilding=null;
+        document.getElementById('inside-overlay').classList.remove('inside');
+        enterBtn.style.display='none';
+        enterBtn.textContent='🚪\nEnter';
+        document.getElementById('building-prompt').textContent='🏢 [E] Andar Jao';
+        return;
+    }
+    // Find nearest enterable building
+    for(const b of enterableBuildings) {
+        const dx=camera.position.x-b.cx, dz=camera.position.z-b.cz;
+        const dist=Math.sqrt(dx*dx+dz*dz);
+        if(dist < b.bWidth/2+4) {
+            insidePos={x:camera.position.x, z:camera.position.z};
+            insideBuilding=b;
+            b.interiorGroup.visible=true;
+            camera.position.set(b.cx, 2, b.cz);
+            document.getElementById('inside-overlay').classList.add('inside');
+            enterBtn.style.display='block';
+            enterBtn.innerHTML='🚪<br>Exit';
+            document.getElementById('building-prompt').textContent='🏢 [E] Bahar Jao';
+            break;
+        }
+    }
+}
+
+// ---- COLLISION ----
+function checkCollision(nx, nz) {
+    if(insideBuilding) {
+        // Inside: constrain to interior
+        const b=insideBuilding;
+        const half=b.bWidth/2-1;
+        return Math.abs(nx-b.cx)>half || Math.abs(nz-b.cz)>half;
+    }
+    for(let b of buildings) {
+        if(nx>b.minX&&nx<b.maxX&&nz>b.minZ&&nz<b.maxZ) return true;
+    }
+    const limit=WORLD_OFFSET-2;
+    return nx<-limit||nx>limit||nz<-limit||nz>limit;
+}
+
+// ---- GAME LOOP ----
+const clock=new THREE.Clock();
+const PLAYER_SPEED=12;
+let anshuTime=0;
+let policeAlertShown=false;
+
+function animate() {
+    requestAnimationFrame(animate);
+    if(isDead||gameWon) return;
+
+    const dt=Math.min(clock.getDelta(),0.1);
+    anshuTime+=dt;
+
+    // ---- Player Movement ----
+    let actFwd=moveForward, actRgt=moveRight;
+    if(keys.w||keys.ArrowUp) actFwd=-1;
+    if(keys.s||keys.ArrowDown) actFwd=1;
+    if(keys.a||keys.ArrowLeft) actRgt=-1;
+    if(keys.d||keys.ArrowRight) actRgt=1;
+
+    camera.rotation.y=yaw; camera.rotation.x=pitch;
+
+    const fwdDir=new THREE.Vector3(); camera.getWorldDirection(fwdDir); fwdDir.y=0; fwdDir.normalize();
+    const rgtDir=new THREE.Vector3(); rgtDir.crossVectors(camera.up,fwdDir).normalize();
+    const moveVec=new THREE.Vector3();
+    moveVec.addScaledVector(fwdDir,-actFwd*PLAYER_SPEED*dt);
+    moveVec.addScaledVector(rgtDir,-actRgt*PLAYER_SPEED*dt);
+    let nextX=camera.position.x+moveVec.x, nextZ=camera.position.z+moveVec.z;
+    if(!checkCollision(nextX,camera.position.z)) camera.position.x=nextX;
+    if(!checkCollision(camera.position.x,nextZ)) camera.position.z=nextZ;
+
+    // ---- NPC civilians ----
+    for(let n of npcs){
+        n.mesh.position.addScaledVector(n.direction,n.speed*dt);
+        n.walkCycle+=dt*n.speed*3;
+        n.legL.rotation.x=Math.sin(n.walkCycle)*0.6;
+        n.legR.rotation.x=Math.sin(n.walkCycle+Math.PI)*0.6;
+        n.armL.rotation.x=Math.sin(n.walkCycle+Math.PI)*0.5;
+        n.armR.rotation.x=Math.sin(n.walkCycle)*0.5;
+        n.mesh.rotation.y=Math.atan2(n.direction.x,n.direction.z);
+        n.timer+=dt;
+        if(n.timer>3+Math.random()*5){ n.timer=0; const cr=new THREE.Vector3(0,1,0).cross(n.direction); n.direction=Math.random()>.5?cr:cr.negate(); }
+        const lim=WORLD_OFFSET-5;
+        if(Math.abs(n.mesh.position.x)>lim||Math.abs(n.mesh.position.z)>lim){ n.direction.negate(); n.timer=0; }
+    }
+
+    // ---- Police AI ----
+    const playerPos=camera.position;
+    let anyChasing=false;
+    for(let p of policeList){
+        const pdx=playerPos.x-p.mesh.position.x, pdz=playerPos.z-p.mesh.position.z;
+        const pdist=Math.sqrt(pdx*pdx+pdz*pdz);
+
+        // Siren blink
+        p.sirenTimer+=dt;
+        p.siren.material.color.setHex(Math.sin(p.sirenTimer*8)>0?0xff2222:0x2222ff);
+
+        // State machine
+        if(pdist<60 && !insideBuilding) {
+            p.state='chase'; anyChasing=true;
+        } else if(pdist>80 || insideBuilding) {
+            p.state='patrol';
         }
 
-        // ==========================================
-        // 4. ANIMATED NPCS
-        // ==========================================
-        const npcs = [];
-        const npcColors =[0xff4444, 0x4444ff, 0x44ff44, 0xffff44, 0xff9900, 0xffffff];
-
-        function createNPC(x, z) {
-            const npc = new THREE.Group();
-            npc.position.set(x, 0, z);
-
-            const skinMat = new THREE.MeshLambertMaterial({ color: 0xffccaa });
-            const shirtMat = new THREE.MeshLambertMaterial({ color: npcColors[Math.floor(Math.random()*npcColors.length)] });
-            const pantsMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
-
-            // Torso
-            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), shirtMat);
-            torso.position.y = 1.05; npc.add(torso);
-            // Head
-            const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), skinMat);
-            head.position.y = 1.6; npc.add(head);
-            // Legs
-            const legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pantsMat);
-            legL.position.set(-0.15, 0.35, 0); npc.add(legL);
-            const legR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pantsMat);
-            legR.position.set(0.15, 0.35, 0); npc.add(legR);
-            // Arms
-            const armL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.6, 0.15), shirtMat);
-            armL.position.set(-0.35, 1.1, 0); npc.add(armL);
-            const armR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.6, 0.15), shirtMat);
-            armR.position.set(0.35, 1.1, 0); npc.add(armR);
-
-            scene.add(npc);
-
-            npcs.push({
-                mesh: npc, legL, legR, armL, armR,
-                walkCycle: Math.random() * 10,
-                speed: 2 + Math.random() * 2,
-                direction: new THREE.Vector3(Math.random()>0.5?1:-1, 0, 0),
-                timer: 0
-            });
+        if(p.state==='chase') {
+            // Move toward player
+            const dir=new THREE.Vector3(pdx,0,pdz).normalize();
+            p.mesh.position.addScaledVector(dir,p.speed*dt);
+            p.mesh.rotation.y=Math.atan2(pdx,pdz);
+            p.walkCycle+=dt*p.speed*2;
+            // Shoot
+            p.shootTimer+=dt;
+            if(p.shootTimer>1.8 && pdist<35) {
+                p.shootTimer=0;
+                spawnBullet(p.mesh.position);
+            }
+        } else {
+            // Patrol
+            p.mesh.position.addScaledVector(p.patrolDir,p.speed*0.5*dt);
+            p.mesh.rotation.y=Math.atan2(p.patrolDir.x,p.patrolDir.z);
+            p.walkCycle+=dt;
+            p.patrolTimer+=dt;
+            if(p.patrolTimer>4+Math.random()*4){ p.patrolTimer=0; p.patrolDir.x=-p.patrolDir.x; p.patrolDir.z=(Math.random()-.5)*2; p.patrolDir.normalize(); }
+            const lim=WORLD_OFFSET-5;
+            if(Math.abs(p.mesh.position.x)>lim||Math.abs(p.mesh.position.z)>lim){ p.patrolDir.negate(); p.patrolTimer=0; }
         }
+        // Animate limbs
+        p.legL.rotation.x=Math.sin(p.walkCycle)*0.6;
+        p.legR.rotation.x=Math.sin(p.walkCycle+Math.PI)*0.6;
+        p.armL.rotation.x=Math.sin(p.walkCycle+Math.PI)*0.5;
+        p.armR.rotation.x=Math.sin(p.walkCycle)*0.5;
+    }
 
-        // Scatter 200 NPCs across the massive city
-        for(let k=0; k<200; k++) {
-            const gx = Math.floor(Math.random() * GRID_SIZE);
-            const gz = Math.floor(Math.random() * GRID_SIZE);
-            const cx = (gx * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
-            const cz = (gz * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
-            createNPC(cx + (Math.random()*20 - 10), cz + (Math.random()*20 - 10));
+    // Police alert UI
+    if(anyChasing && !insideBuilding) {
+        document.getElementById('police-alert').classList.add('show');
+    } else {
+        document.getElementById('police-alert').classList.remove('show');
+    }
+
+    // ---- Bullets ----
+    for(let i=bullets.length-1;i>=0;i--){
+        const b=bullets[i];
+        b.mesh.position.addScaledVector(b.dir,25*dt);
+        b.life-=dt;
+        // Hit player
+        const bx=b.mesh.position.x-playerPos.x, bz=b.mesh.position.z-playerPos.z;
+        if(Math.sqrt(bx*bx+bz*bz)<1.2 && !insideBuilding){
+            takeDamage(8);
+            scene.remove(b.mesh); bullets.splice(i,1); continue;
         }
+        if(b.life<=0){ scene.remove(b.mesh); bullets.splice(i,1); }
+    }
 
-        // ==========================================
-        // 5. THE GOD ANSHU (IMPOSSIBLE MISSION)
-        // ==========================================
-        const anshuGroup = new THREE.Group();
-        const ax = (anshuGridX * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
-        const az = (anshuGridZ * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
-        anshuGroup.position.set(ax, 15, az);
+    // ---- Anshu animation ----
+    if(anshuMesh) {
+        anshuMesh._walkCycle+=dt*1.2;
+        anshuMesh.position.y=Math.sin(anshuMesh._walkCycle*0.8)*0.35;
+        anshuMesh.rotation.y+=dt*0.5;
+        if(anshuAura){ const pls=1+0.18*Math.sin(anshuMesh._walkCycle*2); anshuAura.scale.set(pls,pls,pls); }
+        // Orbit particles
+        anshuMesh.children.forEach(ch=>{ if(ch._isParticle){ ch._angle+=dt*2; ch.position.set(Math.cos(ch._angle)*2,1.5,Math.sin(ch._angle)*2); } });
+        // Proximity
+        const adx=playerPos.x-anshuMesh.position.x, adz=playerPos.z-anshuMesh.position.z;
+        const adist=Math.sqrt(adx*adx+adz*adz);
+        const pct=Math.max(0,Math.min(100,(1-adist/60)*100));
+        document.getElementById('prox-bar').style.width=pct+'%';
+        if(adist<5&&!gameWon){ gameWon=true; setTimeout(()=>document.getElementById('win-screen').classList.add('show'),300); }
+    }
 
-        // Anshu's Body (Glowing Gold)
-        const godGeo = new THREE.OctahedronGeometry(5, 0);
-        const godMat = new THREE.MeshBasicMaterial({ color: 0xffd700, wireframe: true });
-        const godMesh = new THREE.Mesh(godGeo, godMat);
-        anshuGroup.add(godMesh);
-
-        // Core Ring
-        const ringGeo = new THREE.TorusGeometry(8, 0.2, 16, 100);
-        const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-        ringMesh.rotation.x = Math.PI / 2;
-        anshuGroup.add(ringMesh);
-
-        const godLight = new THREE.PointLight(0xffd700, 5, 100);
-        anshuGroup.add(godLight);
-        scene.add(anshuGroup);
-
-        // ==========================================
-        // 6. TOUCH & DESKTOP CONTROLS
-        // ==========================================
-        let moveForward = 0, moveRight = 0, yaw = 0, pitch = 0;
-        let moveTouchId = null, lookTouchId = null;
-        let startMoveX = 0, startMoveY = 0, lastLookX = 0, lastLookY = 0;
-        const maxJoyDist = 40;
-
-        const joystickZone = document.getElementById('joystick-zone');
-        const joystickKnob = document.getElementById('joystick-knob');
-
-        document.addEventListener('touchstart', (e) => {
-            if(startScreen.style.display !== 'none') return;
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                let t = e.changedTouches[i];
-                if (t.clientX < window.innerWidth / 2 && moveTouchId === null) {
-                    moveTouchId = t.identifier;
-                    startMoveX = t.clientX; startMoveY = t.clientY;
-                    joystickZone.style.display = 'block';
-                    joystickZone.style.left = startMoveX + 'px';
-                    joystickZone.style.top = startMoveY + 'px';
-                    joystickKnob.style.transform = `translate(0px, 0px)`;
-                } else if (t.clientX >= window.innerWidth / 2 && lookTouchId === null) {
-                    lookTouchId = t.identifier;
-                    lastLookX = t.clientX; lastLookY = t.clientY;
-                }
-            }
-        }, {passive: false});
-
-        document.addEventListener('touchmove', (e) => {
-            if(startScreen.style.display !== 'none') return;
-            e.preventDefault(); 
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                let t = e.changedTouches[i];
-                if (t.identifier === moveTouchId) {
-                    let dx = t.clientX - startMoveX; let dy = t.clientY - startMoveY;
-                    let dist = Math.sqrt(dx*dx + dy*dy);
-                    if (dist > maxJoyDist) { dx = (dx/dist)*maxJoyDist; dy = (dy/dist)*maxJoyDist; }
-                    joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
-                    moveRight = dx / maxJoyDist; moveForward = dy / maxJoyDist; 
-                } else if (t.identifier === lookTouchId) {
-                    let dx = t.clientX - lastLookX; let dy = t.clientY - lastLookY;
-                    yaw -= dx * 0.005; pitch -= dy * 0.005;
-                    pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, pitch));
-                    lastLookX = t.clientX; lastLookY = t.clientY;
-                }
-            }
-        }, {passive: false});
-
-        function endTouch(e) {
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                let t = e.changedTouches[i];
-                if (t.identifier === moveTouchId) {
-                    moveTouchId = null; moveForward = 0; moveRight = 0;
-                    joystickZone.style.display = 'none';
-                }
-                if (t.identifier === lookTouchId) lookTouchId = null;
-            }
+    // ---- Building enter prompt ----
+    let nearEnterable=false;
+    if(!insideBuilding) {
+        for(const b of enterableBuildings){
+            const dx=playerPos.x-b.cx, dz=playerPos.z-b.cz;
+            if(Math.sqrt(dx*dx+dz*dz)<b.bWidth/2+4){ nearEnterable=true; break; }
         }
-        document.addEventListener('touchend', endTouch);
-        document.addEventListener('touchcancel', endTouch);
+    }
+    if(nearEnterable||insideBuilding) {
+        document.getElementById('building-prompt').classList.add('show');
+        enterBtn.style.display='block';
+    } else {
+        document.getElementById('building-prompt').classList.remove('show');
+        if(!insideBuilding) enterBtn.style.display='none';
+    }
 
-        // PC Fallback
-        const keys = {};
-        let isMouseDown = false;
-        document.addEventListener('keydown', (e) => keys[e.code] = true);
-        document.addEventListener('keyup', (e) => keys[e.code] = false);
-        document.addEventListener('mousedown', (e) => { isMouseDown = true; lastLookX = e.clientX; lastLookY = e.clientY; });
-        document.addEventListener('mouseup', () => isMouseDown = false);
-        document.addEventListener('mousemove', (e) => {
-            if (isMouseDown && startScreen.style.display === 'none') {
-                yaw -= (e.clientX - lastLookX) * 0.004; pitch -= (e.clientY - lastLookY) * 0.004;
-                pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, pitch));
-                lastLookX = e.clientX; lastLookY = e.clientY;
-            }
-        });
+    renderer.render(scene,camera);
+}
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
+animate();
 
-        // ==========================================
-        // 7. PHYSICS & ENGINE LOOP
-        // ==========================================
-        const clock = new THREE.Clock();
-        const PLAYER_SPEED = 20;
-        let walkTimer = 0;
-
-        function checkCollision(nx, nz) {
-            let gx = Math.floor((nx + OFFSET) / BLOCK_SIZE);
-            let gz = Math.floor((nz + OFFSET) / BLOCK_SIZE);
-            if (gx < 0 || gx >= GRID_SIZE || gz < 0 || gz >= GRID_SIZE) return true;
-
-            let cell = worldGrid[gx][gz];
-            if (cell && cell.type === 'building') {
-                if (nx > cell.minX && nx < cell.maxX && nz > cell.minZ && nz < cell.maxZ) return true;
-            }
-            return false;
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            if(startScreen.style.display !== 'none') return;
-
-            const dt = Math.min(clock.getDelta(), 0.1);
-
-            // -- Player Movement --
-            let actFwd = moveForward; let actRgt = moveRight;
-            if (keys['KeyW'] || keys['ArrowUp']) actFwd = -1;
-            if (keys['KeyS'] || keys['ArrowDown']) actFwd = 1;
-            if (keys['KeyA'] || keys['ArrowLeft']) actRgt = -1;
-            if (keys['KeyD'] || keys['ArrowRight']) actRgt = 1;
-
-            camera.rotation.y = yaw; camera.rotation.x = pitch;
-
-            const fwdDir = new THREE.Vector3(); camera.getWorldDirection(fwdDir); fwdDir.y = 0; fwdDir.normalize();
-            const rgtDir = new THREE.Vector3(); rgtDir.crossVectors(camera.up, fwdDir).normalize();
-
-            const moveVec = new THREE.Vector3();
-            moveVec.addScaledVector(fwdDir, -actFwd * PLAYER_SPEED * dt);
-            moveVec.addScaledVector(rgtDir, -actRgt * PLAYER_SPEED * dt);
-
-            let nextX = camera.position.x + moveVec.x; let nextZ = camera.position.z + moveVec.z;
-            if (!checkCollision(nextX, camera.position.z)) camera.position.x = nextX;
-            if (!checkCollision(camera.position.x, nextZ)) camera.position.z = nextZ;
-
-            // Head Bobbing
-            let speedMagnitude = Math.abs(actFwd) + Math.abs(actRgt);
-            if (speedMagnitude > 0.1) {
-                walkTimer += dt * 10; camera.position.y = 2 + Math.sin(walkTimer) * 0.15;
-            } else camera.position.y = 2;
-
-            // -- NPC Updates --
-            for(let n of npcs) {
-                let nextNx = n.mesh.position.x + n.direction.x * n.speed * dt;
-                let nextNz = n.mesh.position.z + n.direction.z * n.speed * dt;
-                
-                // If NPC hits a building or edge, turn around
-                if(checkCollision(nextNx, nextNz)) {
-                    n.direction.negate();
-                    n.timer = 0;
-                } else {
-                    n.mesh.position.set(nextNx, n.mesh.position.y, nextNz);
-                }
-
-                n.walkCycle += dt * n.speed * 3;
-                n.legL.rotation.x = Math.sin(n.walkCycle) * 0.6;
-                n.legR.rotation.x = Math.sin(n.walkCycle + Math.PI) * 0.6;
-                n.armL.rotation.x = Math.sin(n.walkCycle + Math.PI) * 0.5;
-                n.armR.rotation.x = Math.sin(n.walkCycle) * 0.5;
-                
-                n.mesh.rotation.y = Math.atan2(n.direction.x, n.direction.z);
-
-                // Wandering AI Turn randomly
-                n.timer += dt;
-                if(n.timer > 3 + Math.random() * 5) {
-                    n.timer = 0;
-                    const cross = new THREE.Vector3(0, 1, 0).cross(n.direction);
-                    n.direction = Math.random() > 0.5 ? cross : cross.negate();
-                }
-            }
-
-            // -- Animate God Anshu --
-            const time = Date.now() * 0.001;
-            godMesh.rotation.y = time; godMesh.rotation.x = time * 0.5;
-            ringMesh.rotation.z = -time * 2;
-            anshuGroup.position.y = 15 + Math.sin(time * 2) * 2;
-
-            renderer.render(scene, camera);
-        }
-
-        animate();
-    </script>
+} // end initGame
+</script>
 </body>
 </html>
