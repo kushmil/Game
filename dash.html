@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>anshu.y</title>
+    
+    <!-- SweetAlert2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
+    <!-- iziToast -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/izitoast/1.4.0/css/iziToast.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/izitoast/1.4.0/js/iziToast.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;800&display=swap');
+
+        :root {
+            --bg-dark: #1e1a1a;
+            --game-red: #fd4f42;
+            --text-white: #ffffff;
+            --btn-gray: #a6a6a6;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-dark);
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        /* --- Splash Screen --- */
+        #splash-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #1a1515, #2a1f1f);
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        .title-container {
+            margin-bottom: 50px;
+            text-align: center;
+        }
+
+        h1 {
+            color: var(--game-red);
+            font-size: 4rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-shadow: 0 0 20px rgba(253, 79, 66, 0.4);
+            margin: 0;
+        }
+
+        .subtitle {
+            color: var(--text-white);
+            font-size: 1rem;
+            opacity: 0.7;
+        }
+
+        .settings-group {
+            margin-bottom: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .settings-group label {
+            color: var(--btn-gray);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        select {
+            padding: 12px 20px;
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 1.1rem;
+            outline: none;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            appearance: none;
+            -webkit-appearance: none;
+            text-align: center;
+            min-width: 200px;
+        }
+        
+        select option {
+            background-color: var(--bg-dark);
+            color: white;
+        }
+
+        #play-btn {
+            padding: 15px 60px;
+            background-color: var(--game-red);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 1.5rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(253, 79, 66, 0.3);
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        #play-btn:active {
+            transform: scale(0.95);
+            box-shadow: 0 5px 10px rgba(253, 79, 66, 0.3);
+        }
+
+        /* --- Game Screen --- */
+        #game-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background-color: var(--bg-dark);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* UI Overlay */
+        .game-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        #back-btn {
+            pointer-events: auto;
+            width: 50px;
+            height: 50px;
+            background-color: rgba(166, 166, 166, 0.5);
+            border-radius: 12px;
+            border: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+        }
+
+        #back-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: var(--bg-dark);
+        }
+
+        #score-display {
+            color: var(--text-white);
+            font-size: 3rem;
+            font-weight: 600;
+            line-height: 1;
+            margin-right: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Splash Screen -->
+    <div id="splash-screen">
+        <div class="title-container">
+            <h1>anshu.y</h1>
+            <div class="subtitle">Tap to switch sides. Avoid black bars.</div>
+        </div>
+
+        <div class="settings-group">
+            <label for="gfx-setting">Graphics Quality</label>
+            <select id="gfx-setting">
+                <option value="1">Standard (1080p)</option>
+                <option value="1.5">High (1440p)</option>
+                <option value="2">Ultra (2K)</option>
+                <option value="3">Extreme (4K)</option>
+            </select>
+        </div>
+
+        <button id="play-btn">PLAY</button>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen">
+        <canvas id="gameCanvas"></canvas>
+        <div class="game-ui">
+            <button id="back-btn" title="Back to Menu">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z"/>
+                </svg>
+            </button>
+            <div id="score-display">0</div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const splashScreen = document.getElementById('splash-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const playBtn = document.getElementById('play-btn');
+        const backBtn = document.getElementById('back-btn');
+        const gfxSelect = document.getElementById('gfx-setting');
+        const scoreDisplay = document.getElementById('score-display');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // --- Game Logic Variables ---
+        let animationId;
+        let isPlaying = false;
+        let score = 0;
+        let frameCount = 0;
+        let scaleFactor = 1;
+        
+        let logicalWidth, logicalHeight;
+        let pillarWidth, pillarX;
+
+        // Level Colors (Changes every 50 points)
+        const levelColors = [
+            '#fd4f42', // 0-49: Red
+            '#3498db', // 50-99: Blue
+            '#2ecc71', // 100-149: Green
+            '#9b59b6', // 150-199: Purple
+            '#f39c12', // 200-249: Orange
+            '#1abc9c'  // 250-299: Teal
+        ];
+        let currentPillarColor = levelColors[0];
+
+        // Fixed Colors
+        const colDark = '#1a1515';
+        const colBlack = '#22252a';
+        const colWhite = '#ffffff';
+
+        // Player State
+        const player = {
+            size: 20,
+            x: 0,
+            y: 0,
+            targetX: 0,
+            side: 'left', // 'left' or 'right'
+            trail: []
+        };
+        
+        let obstacles = [];
+        let baseSpeed = 5;
+        let gameSpeed = baseSpeed;
+
+        // --- Setup & Initialization ---
+
+        gfxSelect.addEventListener('change', (e) => {
+            const text = e.target.options[e.target.selectedIndex].text;
+            iziToast.show({
+                title: 'Settings Applied',
+                message: `Graphics set to ${text}`,
+                position: 'topCenter',
+                theme: 'dark',
+                color: '#fd4f42',
+                timeout: 2000,
+                progressBar: false
+            });
+        });
+
+        function resizeCanvas() {
+            scaleFactor = parseFloat(gfxSelect.value);
+            logicalWidth = window.innerWidth;
+            logicalHeight = window.innerHeight;
+            canvas.width = logicalWidth * scaleFactor;
+            canvas.height = logicalHeight * scaleFactor;
+
+            // Pillar takes up about 45% of screen width (max 400px)
+            pillarWidth = Math.min(logicalWidth * 0.45, 400); 
+            pillarX = (logicalWidth - pillarWidth) / 2;
+        }
+
+        function initGame() {
+            resizeCanvas();
+            score = 0;
+            scoreDisplay.innerText = score;
+            frameCount = 0;
+            obstacles = [];
+            currentPillarColor = levelColors[0];
+            
+            // Speed scales slightly with screen height to keep pacing consistent
+            baseSpeed = logicalHeight * 0.006; 
+            gameSpeed = baseSpeed;
+
+            // Player Setup
+            player.size = Math.max(15, pillarWidth * 0.1); // Proportional size
+            player.side = 'left';
+            player.x = pillarX;
+            player.targetX = pillarX;
+            player.y = logicalHeight * 0.7; // Player stays fixed near bottom
+            player.trail = [];
+        }
+
+        // --- Controls ---
+
+        function dash() {
+            if (!isPlaying) return;
+            
+            // Switch side logic
+            if (player.side === 'left') {
+                player.side = 'right';
+                player.targetX = pillarX + pillarWidth - player.size;
+            } else {
+                player.side = 'left';
+                player.targetX = pillarX;
+            }
+        }
+
+        // Tap/Click to switch sides (exclude back button)
+        gameScreen.addEventListener('mousedown', (e) => {
+            if (!e.target.closest('#back-btn')) dash();
+        });
+        gameScreen.addEventListener('touchstart', (e) => {
+            if (!e.target.closest('#back-btn')) {
+                e.preventDefault(); // Prevents double firing with mousedown
+                dash();
+            }
+        }, {passive: false});
+
+        // --- UI Interactions ---
+
+        function toggleFullScreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(e => console.log(e));
+            }
+        }
+
+        function exitFullScreen() {
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(e => console.log(e));
+            }
+        }
+
+        playBtn.addEventListener('click', () => {
+            toggleFullScreen();
+            splashScreen.style.opacity = '0';
+            setTimeout(() => {
+                splashScreen.style.display = 'none';
+                gameScreen.style.display = 'block';
+                initGame();
+                isPlaying = true;
+                gameLoop();
+            }, 500);
+        });
+
+        backBtn.addEventListener('click', () => {
+            isPlaying = false;
+            cancelAnimationFrame(animationId);
+            exitFullScreen();
+            gameScreen.style.display = 'none';
+            splashScreen.style.display = 'flex';
+            void splashScreen.offsetWidth; 
+            splashScreen.style.opacity = '1';
+        });
+
+        // --- Game Engine ---
+
+        function spawnObstacle() {
+            const side = Math.random() > 0.5 ? 'left' : 'right';
+            const h = player.size * 0.8; // Obstacle thickness
+            const minW = pillarWidth * 0.3;
+            const maxW = pillarWidth * 0.65;
+            const w = minW + Math.random() * (maxW - minW); 
+            
+            const x = side === 'left' ? pillarX : pillarX + pillarWidth - w;
+            const y = -h - 50; // Start off screen top
+            
+            obstacles.push({ x, y, w, h, passed: false });
+        }
+
+        function update() {
+            // Level / Color Update every 50 points
+            let levelIndex = Math.floor(score / 50);
+            currentPillarColor = levelColors[levelIndex % levelColors.length];
+
+            // Player Horizontal Movement (Lerp for smooth dashing)
+            let prevX = player.x;
+            player.x += (player.targetX - player.x) * 0.35; // Speed of dash
+
+            // Create Trail Effect when moving horizontally
+            if (Math.abs(player.x - prevX) > 1) {
+                player.trail.push({ x: player.x, y: player.y, age: 0 });
+            }
+
+            // Update Trail ages
+            for (let i = player.trail.length - 1; i >= 0; i--) {
+                player.trail[i].age++;
+                if (player.trail[i].age > 10) {
+                    player.trail.splice(i, 1);
+                }
+            }
+
+            // Spawn Obstacles (Spawn rate based on speed)
+            let spawnRate = Math.max(30, Math.floor(100 / (gameSpeed / 4)));
+            if (frameCount % spawnRate === 0) {
+                spawnObstacle();
+            }
+
+            // Move Obstacles Downwards (simulating player moving up)
+            for (let i = 0; i < obstacles.length; i++) {
+                let obs = obstacles[i];
+                obs.y += gameSpeed;
+
+                // Score increment when obstacle passes player
+                if (!obs.passed && obs.y > player.y + player.size) {
+                    obs.passed = true;
+                    score++;
+                    scoreDisplay.innerText = score;
+                    gameSpeed += 0.02; // Gradually increase difficulty
+                }
+
+                // Collision Detection
+                // Using precise AABB (Axis-Aligned Bounding Box)
+                if (player.x < obs.x + obs.w &&
+                    player.x + player.size > obs.x &&
+                    player.y < obs.y + obs.h &&
+                    player.y + player.size > obs.y) {
+                    gameOver();
+                }
+            }
+
+            // Cleanup off-screen obstacles
+            obstacles = obstacles.filter(obs => obs.y < logicalHeight);
+
+            frameCount++;
+        }
+
+        function draw() {
+            // High-Res Rendering Context Setup
+            ctx.setTransform(scaleFactor, 0, 0, scaleFactor, 0, 0);
+
+            // 1. Draw Outer Dark Background
+            ctx.fillStyle = colDark;
+            ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+
+            // 2. Draw Center Pillar (Color updates based on score)
+            ctx.fillStyle = currentPillarColor;
+            ctx.fillRect(pillarX, 0, pillarWidth, logicalHeight);
+
+            // 3. Draw Obstacles (Black bars)
+            ctx.fillStyle = colBlack;
+            obstacles.forEach(obs => {
+                ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+            });
+
+            // 4. Draw Player Trail (The tiny dashes)
+            ctx.fillStyle = colWhite;
+            player.trail.forEach(t => {
+                let opacity = 1 - (t.age / 10);
+                let tSize = player.size * 0.3; // Trail is smaller than player
+                ctx.globalAlpha = opacity * 0.8;
+                // Center the trail dot behind the player's Y center
+                ctx.fillRect(
+                    t.x + (player.size/2) - (tSize/2), 
+                    t.y + (player.size/2) - (tSize/2), 
+                    tSize, 
+                    tSize
+                );
+            });
+            ctx.globalAlpha = 1.0;
+
+            // 5. Draw Player (White square)
+            ctx.fillStyle = colWhite;
+            ctx.fillRect(player.x, player.y, player.size, player.size);
+        }
+
+        function gameLoop() {
+            if (!isPlaying) return;
+            update();
+            draw();
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            cancelAnimationFrame(animationId);
+            
+            Swal.fire({
+                title: 'CRASHED!',
+                text: `Final Score: ${score}`,
+                icon: 'error',
+                background: '#1e1a1a',
+                color: '#fff',
+                confirmButtonColor: currentPillarColor,
+                confirmButtonText: 'PLAY AGAIN',
+                allowOutsideClick: false
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    initGame();
+                    isPlaying = true;
+                    gameLoop();
+                }
+            });
+        }
+
+        // Handle window resize dynamically to prevent glitches
+        window.addEventListener('resize', () => {
+            if(isPlaying) {
+                resizeCanvas();
+                // Snap player back to bounds on rotate/resize
+                if(player.side === 'left') player.x = player.targetX = pillarX;
+                if(player.side === 'right') player.x = player.targetX = pillarX + pillarWidth - player.size;
+                player.y = logicalHeight * 0.7;
+            }
+        });
+
+    </script>
+</body>
+</html>

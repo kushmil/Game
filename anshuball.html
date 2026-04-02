@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Anshu ball ⚽</title>
+    
+    <!-- PWA Setup (Inline Manifest & Service Worker) -->
+    <script>
+        const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><rect width="512" height="512" fill="#FBD24D"/><circle cx="256" cy="256" r="100" fill="#FF8A8A"/><path d="M256 156 v200 M156 256 h200" stroke="#1A1A1A" stroke-width="20"/></svg>`;
+        const iconUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(iconSvg)}`;
+        const manifest = {
+            name: "Anshu Ball ⚽", short_name: "AnshuBall", start_url: window.location.href, display: "standalone",
+            background_color: "#FBD24D", theme_color: "#FBD24D",
+            icons: [{ src: iconUrl, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" }]
+        };
+        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
+        const link = document.createElement('link'); link.rel = 'manifest'; link.href = URL.createObjectURL(manifestBlob); document.head.appendChild(link);
+        const swCode = `self.addEventListener('install', e => e.waitUntil(self.skipWaiting())); self.addEventListener('activate', e => e.waitUntil(self.clients.claim())); self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => new Response('Offline'))));`;
+        const swBlob = new Blob([swCode], { type: 'application/javascript' });
+        if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register(URL.createObjectURL(swBlob)));
+    </script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&display=swap" rel="stylesheet">
+    <!-- SweetAlert2 & iziToast -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/izitoast/dist/css/iziToast.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/izitoast/dist/js/iziToast.min.js"></script>
+
+    <style>
+        :root { --bg-color: #FBD24D; --border-color: #1A1A1A; --table-white: #FFFFFF; --ball-color: #FF8A8A; }
+        * { box-sizing: border-box; user-select: none; font-family: 'Fredoka One', cursive; -webkit-tap-highlight-color: transparent; }
+        
+        body { margin: 0; padding: 0; background-color: var(--border-color); display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; touch-action: none; }
+        
+        #app { width: 100%; max-width: 500px; height: 100%; position: relative; background-color: var(--bg-color); display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; padding: 20px; z-index: 10; }
+        
+        #splash-screen { justify-content: center; gap: 15px; background-color: var(--bg-color); }
+        #game-screen { display: none; justify-content: space-between; padding-bottom: 0; }
+        
+        .title { font-size: 3.5rem; color: var(--border-color); text-align: center; text-shadow: 2px 2px 0px white; margin-bottom: 10px; line-height: 1.1; }
+        
+        .high-score-display { font-size: 1.5rem; background: rgba(255,255,255,0.5); padding: 10px 20px; border-radius: 20px; border: 3px solid var(--border-color); margin-bottom: 20px; }
+        
+        .menu-btn { background-color: var(--table-white); color: var(--border-color); border: 4px solid var(--border-color); padding: 12px 20px; font-size: 1.3rem; border-radius: 10px; cursor: pointer; width: 85%; max-width: 300px; transition: transform 0.1s; box-shadow: 4px 4px 0px var(--border-color); }
+        .menu-btn:active { transform: translate(4px, 4px); box-shadow: 0px 0px 0px var(--border-color); }
+        
+        .header { width: 100%; display: flex; justify-content: space-between; align-items: flex-start; z-index: 20; }
+        .menu-icon { background-color: var(--border-color); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.5rem; cursor: pointer; border: 3px solid var(--border-color); }
+        
+        .scoreboard { display: flex; align-items: center; font-size: 2.5rem; gap: 10px; }
+        .score-box { background-color: var(--table-white); border: 3px solid var(--border-color); padding: 0px 10px; border-radius: 5px; min-width: 50px; text-align: center; }
+        
+        .game-area { flex-grow: 1; width: 100%; position: relative; touch-action: none; }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        
+        .controls { width: 100%; display: flex; justify-content: space-between; gap: 10px; padding: 10px 20px 20px 20px; z-index: 20; }
+        .control-btn { flex: 1; background-color: var(--table-white); border: 4px solid var(--border-color); padding: 25px 0; font-size: 1.8rem; border-radius: 10px; cursor: pointer; box-shadow: inset 0px -4px 0px rgba(0,0,0,0.1); transition: background-color 0.1s; }
+        .control-btn:active { background-color: #EBC13D; transform: translateY(2px); box-shadow: none; }
+        
+        .hint-text { text-align: center; font-size: 0.95rem; color: #555; margin-top: 10px; line-height: 1.4; font-family: sans-serif; font-weight: bold;}
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <!-- SPLASH SCREEN -->
+    <div id="splash-screen" class="screen">
+        <div class="title">Anshu<br>ball ⚽</div>
+        <div class="high-score-display">High Score: <span id="display-high-score">0</span></div>
+
+        <button class="menu-btn" onclick="startGame('easy')">vs AI (Easy)</button>
+        <button class="menu-btn" onclick="startGame('moderate')">vs AI (Moderate)</button>
+        <button class="menu-btn" onclick="startGame('hard')">vs AI (Hard)</button>
+        <button class="menu-btn" onclick="startGame('pvp')" style="background-color: #FF8A8A; color: white;">Player vs Player</button>
+        
+        <div class="hint-text">
+            Hold HIT L / HIT R buttons<br>to Move & Hit!
+        </div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="game-screen" class="screen">
+        <div class="header">
+            <div class="menu-icon" onclick="showSplash()">☰</div>
+            <div class="scoreboard">
+                <div class="score-box" id="score-p2">0</div><div>:</div><div class="score-box" id="score-p1">0</div>
+            </div>
+            <div style="width: 40px;"></div>
+        </div>
+        
+        <div class="game-area"><canvas id="gameCanvas"></canvas></div>
+
+        <div class="controls">
+            <button class="control-btn" id="btn-hit-l">HIT L</button>
+            <button class="control-btn" id="btn-hit-r">HIT R</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Fullscreen API ---
+    function openFullscreen() {
+        let elem = document.documentElement;
+        if (elem.requestFullscreen) { elem.requestFullscreen().catch(()=>{}); } 
+        else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } 
+        else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); }
+    }
+    
+    function closeFullscreen() {
+        if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
+            if (document.exitFullscreen) { document.exitFullscreen().catch(()=>{}); } 
+            else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); } 
+            else if (document.msExitFullscreen) { document.msExitFullscreen(); }
+        }
+    }
+
+    // --- Global Setup ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let animationId;
+    let gameMode = 'easy';
+    let highScore = localStorage.getItem('anshuHighScore') || 0;
+    document.getElementById('display-high-score').innerText = highScore;
+    
+    let state = { p1Score: 0, p2Score: 0, isPlaying: false, serveTurn: 'p1', maxScore: 5 };
+    let table = {}, ball = {}, p1 = {}, p2 = {};
+    
+    // Controls State (For continuous movement on button hold)
+    let p1Controls = { left: false, right: false };
+    const keys = {};
+
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+
+    // --- Button Event Listeners (Press & Hold) ---
+    const hitL = document.getElementById('btn-hit-l');
+    const hitR = document.getElementById('btn-hit-r');
+
+    function pressLeft(e) { e.preventDefault(); if(!state.isPlaying) return; p1Controls.left = true; tryHit(p1, 'L', false); }
+    function releaseLeft(e) { e.preventDefault(); p1Controls.left = false; }
+    
+    function pressRight(e) { e.preventDefault(); if(!state.isPlaying) return; p1Controls.right = true; tryHit(p1, 'R', false); }
+    function releaseRight(e) { e.preventDefault(); p1Controls.right = false; }
+
+    // Mouse events
+    hitL.addEventListener('mousedown', pressLeft); hitL.addEventListener('mouseup', releaseLeft); hitL.addEventListener('mouseleave', releaseLeft);
+    hitR.addEventListener('mousedown', pressRight); hitR.addEventListener('mouseup', releaseRight); hitR.addEventListener('mouseleave', releaseRight);
+    
+    // Touch events
+    hitL.addEventListener('touchstart', pressLeft); hitL.addEventListener('touchend', releaseLeft); hitL.addEventListener('touchcancel', releaseLeft);
+    hitR.addEventListener('touchstart', pressRight); hitR.addEventListener('touchend', releaseRight); hitR.addEventListener('touchcancel', releaseRight);
+
+    // --- Init & Resize ---
+    function resizeCanvas() {
+        const container = document.querySelector('.game-area');
+        canvas.width = container.clientWidth; canvas.height = container.clientHeight;
+        initEntities();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function initEntities() {
+        const cw = canvas.width, ch = canvas.height;
+        table = { w: cw * 0.5, h: ch * 0.25, x: cw * 0.25, y: ch * 0.375 };
+        ball = { x: cw / 2, y: ch / 2, radius: 8, vx: 0, vy: 0, baseSpeed: ch * 0.007 };
+        const pBase = { radius: 12, animTimer: 0, isSwinging: false, swingDirection: null };
+        p1 = { ...pBase, x: cw / 2, y: ch * 0.85, isAI: false };
+        p2 = { ...pBase, x: cw / 2, y: ch * 0.15, isAI: gameMode !== 'pvp' };
+    }
+
+    function resetPoint() {
+        ball.x = canvas.width / 2; ball.y = canvas.height / 2; ball.vx = 0;
+        ball.vy = state.serveTurn === 'p1' ? ball.baseSpeed : -ball.baseSpeed;
+        p1.x = canvas.width / 2; p2.x = canvas.width / 2;
+        p1Controls.left = false; p1Controls.right = false;
+        draw();
+    }
+
+    // --- Game Navigation ---
+    function showSplash() {
+        state.isPlaying = false; cancelAnimationFrame(animationId);
+        closeFullscreen(); // Exit Fullscreen on menu
+        document.getElementById('splash-screen').style.display = 'flex';
+        document.getElementById('game-screen').style.display = 'none';
+        document.getElementById('display-high-score').innerText = highScore;
+    }
+
+    function startGame(mode) {
+        openFullscreen(); // Trigger Fullscreen immediately on tap
+        gameMode = mode; state.p1Score = 0; state.p2Score = 0; state.serveTurn = 'p1';
+        document.getElementById('score-p1').innerText = 0; document.getElementById('score-p2').innerText = 0;
+        
+        document.getElementById('splash-screen').style.display = 'none';
+        document.getElementById('game-screen').style.display = 'flex';
+        
+        setTimeout(() => {
+            resizeCanvas(); resetPoint(); state.isPlaying = true;
+            iziToast.info({ title: 'Game On!', message: 'First to 5 wins.', position: 'topCenter', timeout: 2000 });
+            gameLoop();
+        }, 100);
+    }
+
+    function scorePoint(winner) {
+        if (winner === 'p1') { state.p1Score++; state.serveTurn = 'p2'; iziToast.success({title: '+1', position: 'bottomRight', timeout: 1000}); } 
+        else { state.p2Score++; state.serveTurn = 'p1'; iziToast.error({title: 'Point Lost', position: 'topRight', timeout: 1000}); }
+        
+        document.getElementById('score-p1').innerText = state.p1Score; document.getElementById('score-p2').innerText = state.p2Score;
+
+        if (gameMode !== 'pvp' && state.p1Score > highScore) { highScore = state.p1Score; localStorage.setItem('anshuHighScore', highScore); }
+
+        if (state.p1Score >= state.maxScore || state.p2Score >= state.maxScore) endGame();
+        else resetPoint();
+    }
+
+    function endGame() {
+        state.isPlaying = false;
+        let p1Won = state.p1Score >= state.maxScore;
+        let title = gameMode === 'pvp' ? (p1Won ? 'Player 1 Wins!' : 'Player 2 Wins!') : (p1Won ? 'You Won!' : 'AI Won!');
+
+        let swalConf = {
+            title: title, text: `Final Score: ${state.p2Score} - ${state.p1Score}`,
+            icon: p1Won ? 'success' : 'error', confirmButtonText: 'Play Again',
+            confirmButtonColor: '#1A1A1A', showCancelButton: true, cancelButtonText: 'Menu'
+        };
+
+        if(p1Won && gameMode !== 'pvp') {
+            swalConf.backdrop = `rgba(0,0,123,0.4) url("https://sweetalert2.github.io/images/nyan-cat.gif") left top no-repeat`;
+        }
+        Swal.fire(swalConf).then(res => res.isConfirmed ? startGame(gameMode) : showSplash());
+    }
+
+    // --- Core Logic ---
+    function tryHit(playerObj, direction, isTopPlayer) {
+        playerObj.isSwinging = true; playerObj.swingDirection = direction; playerObj.animTimer = 20; // Slightly longer animation
+
+        const hitDistY = Math.abs(ball.y - playerObj.y);
+        const hitDistX = Math.abs(ball.x - playerObj.x);
+        const hitZoneY = canvas.height * 0.18; // More forgiving Y hit zone
+        const hitZoneX = canvas.width * 0.4;   // More forgiving X hit zone
+
+        const isApproaching = (isTopPlayer && ball.vy < 0) || (!isTopPlayer && ball.vy > 0);
+
+        if (isApproaching && hitDistY < hitZoneY && hitDistX < hitZoneX) {
+            ball.vy *= -1.06;
+            let xForce = canvas.width * 0.015;
+            ball.vx = direction === 'L' ? -xForce : xForce;
+        }
+    }
+
+    function update() {
+        // --- Continuous Movement (Buttons & Keyboard) ---
+        const moveSpeed = canvas.width * 0.035; // Player move speed
+        
+        if (p1Controls.left || keys['ArrowLeft']) p1.x -= moveSpeed;
+        if (p1Controls.right || keys['ArrowRight']) p1.x += moveSpeed;
+        p1.x = Math.max(p1.radius, Math.min(canvas.width - p1.radius, p1.x)); // Keep inside screen
+
+        if (gameMode === 'pvp') {
+            if (keys['a'] || keys['A']) { p2.x -= moveSpeed; if(!p2.isSwinging) tryHit(p2, 'L', true); }
+            if (keys['d'] || keys['D']) { p2.x += moveSpeed; if(!p2.isSwinging) tryHit(p2, 'R', true); }
+            p2.x = Math.max(p2.radius, Math.min(canvas.width - p2.radius, p2.x));
+        }
+
+        // --- Ball Physics ---
+        ball.x += ball.vx; ball.y += ball.vy;
+        ball.vx *= 0.99; // slight air drag
+
+        if (ball.x < 0) { ball.x = 0; ball.vx *= -1; } 
+        else if (ball.x > canvas.width) { ball.x = canvas.width; ball.vx *= -1; }
+
+        // --- AI Logic ---
+        if (p2.isAI && ball.vy < 0) {
+            let aiSpeed = gameMode === 'easy' ? 0.03 : (gameMode === 'moderate' ? 0.06 : 0.12);
+            p2.x += (ball.x - p2.x) * aiSpeed;
+
+            if (ball.y < p2.y + canvas.height * 0.15 && ball.y > p2.y && !p2.isSwinging) {
+                let hitChance = gameMode === 'easy' ? 0.6 : (gameMode === 'moderate' ? 0.85 : 0.98);
+                if (Math.random() < hitChance) {
+                    let dir = p1.x < canvas.width/2 ? 'R' : 'L';
+                    if(Math.random() > 0.7) dir = dir === 'L' ? 'R' : 'L';
+                    tryHit(p2, dir, true);
+                }
+            }
+        }
+
+        // --- Animations ---
+        if (p1.isSwinging) { p1.animTimer--; if (p1.animTimer <= 0) p1.isSwinging = false; }
+        if (p2.isSwinging) { p2.animTimer--; if (p2.animTimer <= 0) p2.isSwinging = false; }
+
+        // --- Scoring ---
+        if (ball.y > canvas.height + 20) scorePoint('p2');
+        else if (ball.y < -20) scorePoint('p1');
+    }
+
+    function draw() {
+        ctx.fillStyle = '#FBD24D'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Table
+        ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(table.x + 5, table.y + 10, table.w, table.h);
+        ctx.strokeStyle = '#1A1A1A'; ctx.lineWidth = 3; ctx.beginPath();
+        ctx.moveTo(table.x + table.w*0.1, table.y + table.h); ctx.lineTo(table.x + table.w*0.1, table.y + table.h + 20);
+        ctx.moveTo(table.x + table.w*0.9, table.y + table.h); ctx.lineTo(table.x + table.w*0.9, table.y + table.h + 20); ctx.stroke();
+
+        ctx.fillStyle = '#FFFFFF'; ctx.fillRect(table.x, table.y, table.w, table.h); ctx.strokeRect(table.x, table.y, table.w, table.h);
+        ctx.beginPath(); ctx.moveTo(table.x + table.w / 2, table.y); ctx.lineTo(table.x + table.w / 2, table.y + table.h);
+        ctx.moveTo(table.x - 5, table.y + table.h / 2); ctx.lineTo(table.x + table.w + 5, table.y + table.h / 2); ctx.stroke();
+        
+        ctx.fillRect(table.x - 10, table.y + table.h / 2 - 5, 10, 10); ctx.strokeRect(table.x - 10, table.y + table.h / 2 - 5, 10, 10);
+        ctx.fillRect(table.x + table.w, table.y + table.h / 2 - 5, 10, 10); ctx.strokeRect(table.x + table.w, table.y + table.h / 2 - 5, 10, 10);
+
+        // Draw Player Function
+        function drawStickman(player, isTop) {
+            ctx.strokeStyle = '#1A1A1A'; ctx.fillStyle = '#FFFFFF'; ctx.lineWidth = 3;
+            const dirMultiplier = isTop ? 1 : -1;
+
+            ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); // Head
+            const bodyY1 = player.y + player.radius * dirMultiplier, bodyY2 = bodyY1 + 25 * dirMultiplier;
+            ctx.beginPath(); ctx.moveTo(player.x, bodyY1); ctx.lineTo(player.x, bodyY2); ctx.stroke(); // Body
+            ctx.beginPath(); ctx.moveTo(player.x, bodyY2); ctx.lineTo(player.x - 15, bodyY2 + 20 * dirMultiplier);
+            ctx.moveTo(player.x, bodyY2); ctx.lineTo(player.x + 15, bodyY2 + 20 * dirMultiplier); ctx.stroke(); // Legs
+
+            // Arm & Racket
+            const armY1 = player.y + (player.radius + 10) * dirMultiplier;
+            let angle = isTop ? Math.PI/4 : -Math.PI/4;
+            if (player.isSwinging) {
+                let swing = (player.animTimer / 20) * Math.PI; // Sync with new animTimer
+                angle += player.swingDirection === 'L' ? -swing : swing;
+            } else { angle += (ball.x - player.x) * 0.003; } // Racket tracks ball slightly
+            
+            const armX2 = player.x + Math.cos(angle) * 25, armY2 = armY1 + Math.sin(angle) * 25;
+            ctx.beginPath(); ctx.moveTo(player.x, armY1); ctx.lineTo(armX2, armY2); ctx.stroke();
+            ctx.fillStyle = '#FFB8B8'; ctx.beginPath(); ctx.ellipse(armX2, armY2, 10, 4, angle + Math.PI/2, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        }
+
+        drawStickman(p2, true); drawStickman(p1, false);
+
+        // Ball Trajectory
+        if (Math.abs(ball.vy) > 0) {
+            ctx.beginPath(); ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 2;
+            ctx.moveTo(ball.x, ball.y); ctx.quadraticCurveTo(ball.x - ball.vx*4, ball.y - ball.vy*4, ball.x - ball.vx*8, ball.y - ball.vy*8); ctx.stroke();
+        }
+
+        // Ball
+        ctx.fillStyle = '#FF8A8A'; ctx.strokeStyle = '#1A1A1A'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
+
+    function gameLoop() {
+        if (!state.isPlaying) return;
+        update(); draw();
+        animationId = requestAnimationFrame(gameLoop);
+    }
+</script>
+
+</body>
+</html>

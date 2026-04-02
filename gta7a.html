@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Find The God Anshu</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            overflow: hidden; background-color: #000;
+            user-select: none; -webkit-user-select: none; touch-action: none;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        
+        #canvas-container { 
+            width: 100%; height: 100%; display: block; 
+        }
+        
+        /* Start Screen Banner */
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #000; color: #fff;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 999; cursor: pointer; text-align: center;
+        }
+        #start-screen h1 {
+            font-size: 8vw; margin: 0; text-transform: uppercase;
+            letter-spacing: 5px; text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+        #start-screen p {
+            font-size: 3vw; color: #888; margin-top: 20px;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+
+        /* UI Layer (Hidden text, only joystick) */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; display: none;
+        }
+
+        /* Virtual Joystick */
+        #joystick-zone {
+            position: absolute; bottom: 60px; left: 60px;
+            width: 120px; height: 120px; background: rgba(0, 0, 0, 0.15);
+            border-radius: 50%; display: none;
+            border: 2px solid rgba(0, 0, 0, 0.3);
+            transform: translate(-50%, -50%); backdrop-filter: blur(4px);
+        }
+        #joystick-knob {
+            position: absolute; top: 50%; left: 50%;
+            width: 50px; height: 50px; background: rgba(0, 0, 0, 0.5);
+            border-radius: 50%; margin-top: -25px; margin-left: -25px;
+        }
+    </style>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+
+    <!-- Start Banner -->
+    <div id="start-screen">
+        <h1>Find the God Anshu</h1>
+        <p>Tap anywhere to enter the endless world</p>
+    </div>
+
+    <div id="canvas-container"></div>
+    
+    <!-- Game UI (No Text) -->
+    <div id="ui-layer">
+        <div id="joystick-zone"><div id="joystick-knob"></div></div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. GAME INITIALIZATION & FULLSCREEN
+        // ==========================================
+        const startScreen = document.getElementById('start-screen');
+        const uiLayer = document.getElementById('ui-layer');
+
+        startScreen.addEventListener('click', () => {
+            // Force Fullscreen
+            const docEl = document.documentElement;
+            if (docEl.requestFullscreen) docEl.requestFullscreen();
+            else if (docEl.webkitRequestFullscreen) docEl.webkitRequestFullscreen();
+            
+            // Force Landscape Orientation on Phones
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch((e) => console.log("Orientation lock not supported"));
+            }
+
+            // Hide Banner, Show UI
+            startScreen.style.display = 'none';
+            uiLayer.style.display = 'block';
+
+            // Play God Voice
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance("I am Anshu.");
+                utterance.pitch = 0.2; // Deep god-like pitch
+                utterance.rate = 0.7;  // Slow, dramatic speed
+                utterance.volume = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        });
+
+        // ==========================================
+        // 2. SCENE SETUP (DAYTIME)
+        // ==========================================
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        
+        // Daytime Environment with Rare/Light Fog
+        const skyColor = new THREE.Color(0x87CEEB); // Bright Sky Blue
+        scene.background = skyColor;
+        scene.fog = new THREE.FogExp2(skyColor, 0.003); // Very light fog, high visibility
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 400);
+        camera.position.set(0, 2, 0); 
+        camera.rotation.order = "YXZ";
+
+        const renderer = new THREE.WebGLRenderer({ antialias: false }); 
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+        container.appendChild(renderer.domElement);
+
+        // Bright Daytime Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xfffaee, 1.2); // Sun
+        dirLight.position.set(100, 200, 50);
+        scene.add(dirLight);
+
+        // ==========================================
+        // 3. MASSIVE WORLD GENERATION (INSTANCED MESH)
+        // ==========================================
+        const GRID_SIZE = 100; // 100x100 blocks = 10,000 city blocks!
+        const BLOCK_SIZE = 40;
+        const OFFSET = (GRID_SIZE * BLOCK_SIZE) / 2;
+
+        // Collision Map
+        const worldGrid = new Array(GRID_SIZE).fill(0).map(() => new Array(GRID_SIZE).fill(null));
+
+        // Textures
+        function createProceduralTexture(baseColor, isWindowed) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = baseColor; ctx.fillRect(0,0,256,256);
+            
+            if (isWindowed) {
+                for(let i=0; i<8; i++) {
+                    for(let j=0; j<8; j++) {
+                        if(Math.random() > 0.4) {
+                            // Daytime windows (mostly dark glass reflecting blue sky)
+                            ctx.fillStyle = Math.random() > 0.8 ? '#aaccff' : '#223344';
+                            ctx.fillRect(i*32 + 4, j*32 + 4, 24, 24);
+                        }
+                    }
+                }
+            }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
+            return tex;
+        }
+
+        const asphaltTex = createProceduralTexture('#444', false);
+        asphaltTex.repeat.set(GRID_SIZE * 2, GRID_SIZE * 2);
+        const concreteTex = createProceduralTexture('#888', false);
+        const buildingColors =['#999', '#aaa', '#7a8b9c', '#bcaea0', '#666'];
+        const buildingMats = buildingColors.map(c => new THREE.MeshLambertMaterial({ map: createProceduralTexture(c, true) }));
+
+        // Base Ground (Endless Road)
+        const groundGeo = new THREE.PlaneGeometry(GRID_SIZE * BLOCK_SIZE, GRID_SIZE * BLOCK_SIZE);
+        const groundMat = new THREE.MeshLambertMaterial({ map: asphaltTex });
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // Geometries for instancing
+        const sGeo = new THREE.BoxGeometry(1, 1, 1); 
+        const bGeo = new THREE.BoxGeometry(1, 1, 1);
+        const trunkGeo = new THREE.CylinderGeometry(0.5, 0.5, 4, 5);
+        const leavesGeo = new THREE.ConeGeometry(2.5, 6, 5);
+
+        const sMat = new THREE.MeshLambertMaterial({ map: concreteTex });
+        const trunkMat = new THREE.MeshLambertMaterial({ color: 0x5c4033 });
+        const leavesMat = new THREE.MeshLambertMaterial({ color: 0x228b22 });
+
+        const totalBlocks = GRID_SIZE * GRID_SIZE;
+        const maxBuildingsPerType = Math.floor(totalBlocks / 5);
+        
+        const sidewalkIM = new THREE.InstancedMesh(sGeo, sMat, totalBlocks);
+        const buildingIMs = buildingMats.map(mat => new THREE.InstancedMesh(bGeo, mat, maxBuildingsPerType));
+        const trunkIM = new THREE.InstancedMesh(trunkGeo, trunkMat, totalBlocks * 4);
+        const leavesIM = new THREE.InstancedMesh(leavesGeo, leavesMat, totalBlocks * 4);
+
+        scene.add(sidewalkIM);
+        buildingIMs.forEach(im => scene.add(im));
+        scene.add(trunkIM);
+        scene.add(leavesIM);
+
+        const dummy = new THREE.Object3D();
+        let bIndices =[0,0,0,0,0];
+        let treeIndex = 0;
+        let sIndex = 0;
+
+        // Pick a random block for God Anshu to hide
+        const anshuGridX = Math.floor(Math.random() * (GRID_SIZE - 4)) + 2;
+        const anshuGridZ = Math.floor(Math.random() * (GRID_SIZE - 4)) + 2;
+
+        for (let i = 0; i < GRID_SIZE; i++) {
+            for (let j = 0; j < GRID_SIZE; j++) {
+                const cx = (i * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
+                const cz = (j * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
+
+                // Add Sidewalk
+                dummy.position.set(cx, 0.1, cz);
+                dummy.scale.set(28, 0.2, 28);
+                dummy.updateMatrix();
+                sidewalkIM.setMatrixAt(sIndex++, dummy.matrix);
+
+                // If this is God Anshu's block, skip building
+                if (i === anshuGridX && j === anshuGridZ) continue;
+
+                // Add Building (85% chance)
+                if (Math.random() > 0.15) {
+                    const bHeight = 20 + Math.random() * 80; 
+                    const bWidth = 22 + Math.random() * 4;
+                    const type = Math.floor(Math.random() * 5);
+                    
+                    if (bIndices[type] < maxBuildingsPerType) {
+                        dummy.position.set(cx, bHeight/2, cz);
+                        dummy.scale.set(bWidth, bHeight, bWidth);
+                        dummy.updateMatrix();
+                        buildingIMs[type].setMatrixAt(bIndices[type]++, dummy.matrix);
+
+                        worldGrid[i][j] = {
+                            type: 'building',
+                            minX: cx - bWidth/2 - 1, maxX: cx + bWidth/2 + 1,
+                            minZ: cz - bWidth/2 - 1, maxZ: cz + bWidth/2 + 1
+                        };
+                    }
+                }
+
+                // Add Trees
+                for(let t=0; t<4; t++) {
+                    if(Math.random() > 0.5) {
+                        const tx = cx + (Math.random() > 0.5 ? 12 : -12);
+                        const tz = cz + (Math.random() > 0.5 ? 12 : -12);
+                        
+                        dummy.position.set(tx, 2, tz);
+                        dummy.scale.set(1, 1, 1);
+                        dummy.updateMatrix();
+                        trunkIM.setMatrixAt(treeIndex, dummy.matrix);
+                        
+                        dummy.position.set(tx, 5, tz);
+                        dummy.updateMatrix();
+                        leavesIM.setMatrixAt(treeIndex, dummy.matrix);
+                        
+                        treeIndex++;
+                    }
+                }
+            }
+        }
+
+        // ==========================================
+        // 4. ANIMATED NPCS
+        // ==========================================
+        const npcs = [];
+        const npcColors =[0xff4444, 0x4444ff, 0x44ff44, 0xffff44, 0xff9900, 0xffffff];
+
+        function createNPC(x, z) {
+            const npc = new THREE.Group();
+            npc.position.set(x, 0, z);
+
+            const skinMat = new THREE.MeshLambertMaterial({ color: 0xffccaa });
+            const shirtMat = new THREE.MeshLambertMaterial({ color: npcColors[Math.floor(Math.random()*npcColors.length)] });
+            const pantsMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+
+            // Torso
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), shirtMat);
+            torso.position.y = 1.05; npc.add(torso);
+            // Head
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), skinMat);
+            head.position.y = 1.6; npc.add(head);
+            // Legs
+            const legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pantsMat);
+            legL.position.set(-0.15, 0.35, 0); npc.add(legL);
+            const legR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.7, 0.2), pantsMat);
+            legR.position.set(0.15, 0.35, 0); npc.add(legR);
+            // Arms
+            const armL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.6, 0.15), shirtMat);
+            armL.position.set(-0.35, 1.1, 0); npc.add(armL);
+            const armR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.6, 0.15), shirtMat);
+            armR.position.set(0.35, 1.1, 0); npc.add(armR);
+
+            scene.add(npc);
+
+            npcs.push({
+                mesh: npc, legL, legR, armL, armR,
+                walkCycle: Math.random() * 10,
+                speed: 2 + Math.random() * 2,
+                direction: new THREE.Vector3(Math.random()>0.5?1:-1, 0, 0),
+                timer: 0
+            });
+        }
+
+        // Scatter 200 NPCs across the massive city
+        for(let k=0; k<200; k++) {
+            const gx = Math.floor(Math.random() * GRID_SIZE);
+            const gz = Math.floor(Math.random() * GRID_SIZE);
+            const cx = (gx * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
+            const cz = (gz * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
+            createNPC(cx + (Math.random()*20 - 10), cz + (Math.random()*20 - 10));
+        }
+
+        // ==========================================
+        // 5. THE GOD ANSHU (IMPOSSIBLE MISSION)
+        // ==========================================
+        const anshuGroup = new THREE.Group();
+        const ax = (anshuGridX * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
+        const az = (anshuGridZ * BLOCK_SIZE) - OFFSET + (BLOCK_SIZE/2);
+        anshuGroup.position.set(ax, 15, az);
+
+        // Anshu's Body (Glowing Gold)
+        const godGeo = new THREE.OctahedronGeometry(5, 0);
+        const godMat = new THREE.MeshBasicMaterial({ color: 0xffd700, wireframe: true });
+        const godMesh = new THREE.Mesh(godGeo, godMat);
+        anshuGroup.add(godMesh);
+
+        // Core Ring
+        const ringGeo = new THREE.TorusGeometry(8, 0.2, 16, 100);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+        ringMesh.rotation.x = Math.PI / 2;
+        anshuGroup.add(ringMesh);
+
+        const godLight = new THREE.PointLight(0xffd700, 5, 100);
+        anshuGroup.add(godLight);
+        scene.add(anshuGroup);
+
+        // ==========================================
+        // 6. TOUCH & DESKTOP CONTROLS
+        // ==========================================
+        let moveForward = 0, moveRight = 0, yaw = 0, pitch = 0;
+        let moveTouchId = null, lookTouchId = null;
+        let startMoveX = 0, startMoveY = 0, lastLookX = 0, lastLookY = 0;
+        const maxJoyDist = 40;
+
+        const joystickZone = document.getElementById('joystick-zone');
+        const joystickKnob = document.getElementById('joystick-knob');
+
+        document.addEventListener('touchstart', (e) => {
+            if(startScreen.style.display !== 'none') return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                let t = e.changedTouches[i];
+                if (t.clientX < window.innerWidth / 2 && moveTouchId === null) {
+                    moveTouchId = t.identifier;
+                    startMoveX = t.clientX; startMoveY = t.clientY;
+                    joystickZone.style.display = 'block';
+                    joystickZone.style.left = startMoveX + 'px';
+                    joystickZone.style.top = startMoveY + 'px';
+                    joystickKnob.style.transform = `translate(0px, 0px)`;
+                } else if (t.clientX >= window.innerWidth / 2 && lookTouchId === null) {
+                    lookTouchId = t.identifier;
+                    lastLookX = t.clientX; lastLookY = t.clientY;
+                }
+            }
+        }, {passive: false});
+
+        document.addEventListener('touchmove', (e) => {
+            if(startScreen.style.display !== 'none') return;
+            e.preventDefault(); 
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                let t = e.changedTouches[i];
+                if (t.identifier === moveTouchId) {
+                    let dx = t.clientX - startMoveX; let dy = t.clientY - startMoveY;
+                    let dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist > maxJoyDist) { dx = (dx/dist)*maxJoyDist; dy = (dy/dist)*maxJoyDist; }
+                    joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+                    moveRight = dx / maxJoyDist; moveForward = dy / maxJoyDist; 
+                } else if (t.identifier === lookTouchId) {
+                    let dx = t.clientX - lastLookX; let dy = t.clientY - lastLookY;
+                    yaw -= dx * 0.005; pitch -= dy * 0.005;
+                    pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, pitch));
+                    lastLookX = t.clientX; lastLookY = t.clientY;
+                }
+            }
+        }, {passive: false});
+
+        function endTouch(e) {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                let t = e.changedTouches[i];
+                if (t.identifier === moveTouchId) {
+                    moveTouchId = null; moveForward = 0; moveRight = 0;
+                    joystickZone.style.display = 'none';
+                }
+                if (t.identifier === lookTouchId) lookTouchId = null;
+            }
+        }
+        document.addEventListener('touchend', endTouch);
+        document.addEventListener('touchcancel', endTouch);
+
+        // PC Fallback
+        const keys = {};
+        let isMouseDown = false;
+        document.addEventListener('keydown', (e) => keys[e.code] = true);
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+        document.addEventListener('mousedown', (e) => { isMouseDown = true; lastLookX = e.clientX; lastLookY = e.clientY; });
+        document.addEventListener('mouseup', () => isMouseDown = false);
+        document.addEventListener('mousemove', (e) => {
+            if (isMouseDown && startScreen.style.display === 'none') {
+                yaw -= (e.clientX - lastLookX) * 0.004; pitch -= (e.clientY - lastLookY) * 0.004;
+                pitch = Math.max(-Math.PI/2.1, Math.min(Math.PI/2.1, pitch));
+                lastLookX = e.clientX; lastLookY = e.clientY;
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ==========================================
+        // 7. PHYSICS & ENGINE LOOP
+        // ==========================================
+        const clock = new THREE.Clock();
+        const PLAYER_SPEED = 20;
+        let walkTimer = 0;
+
+        function checkCollision(nx, nz) {
+            let gx = Math.floor((nx + OFFSET) / BLOCK_SIZE);
+            let gz = Math.floor((nz + OFFSET) / BLOCK_SIZE);
+            if (gx < 0 || gx >= GRID_SIZE || gz < 0 || gz >= GRID_SIZE) return true;
+
+            let cell = worldGrid[gx][gz];
+            if (cell && cell.type === 'building') {
+                if (nx > cell.minX && nx < cell.maxX && nz > cell.minZ && nz < cell.maxZ) return true;
+            }
+            return false;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(startScreen.style.display !== 'none') return;
+
+            const dt = Math.min(clock.getDelta(), 0.1);
+
+            // -- Player Movement --
+            let actFwd = moveForward; let actRgt = moveRight;
+            if (keys['KeyW'] || keys['ArrowUp']) actFwd = -1;
+            if (keys['KeyS'] || keys['ArrowDown']) actFwd = 1;
+            if (keys['KeyA'] || keys['ArrowLeft']) actRgt = -1;
+            if (keys['KeyD'] || keys['ArrowRight']) actRgt = 1;
+
+            camera.rotation.y = yaw; camera.rotation.x = pitch;
+
+            const fwdDir = new THREE.Vector3(); camera.getWorldDirection(fwdDir); fwdDir.y = 0; fwdDir.normalize();
+            const rgtDir = new THREE.Vector3(); rgtDir.crossVectors(camera.up, fwdDir).normalize();
+
+            const moveVec = new THREE.Vector3();
+            moveVec.addScaledVector(fwdDir, -actFwd * PLAYER_SPEED * dt);
+            moveVec.addScaledVector(rgtDir, -actRgt * PLAYER_SPEED * dt);
+
+            let nextX = camera.position.x + moveVec.x; let nextZ = camera.position.z + moveVec.z;
+            if (!checkCollision(nextX, camera.position.z)) camera.position.x = nextX;
+            if (!checkCollision(camera.position.x, nextZ)) camera.position.z = nextZ;
+
+            // Head Bobbing
+            let speedMagnitude = Math.abs(actFwd) + Math.abs(actRgt);
+            if (speedMagnitude > 0.1) {
+                walkTimer += dt * 10; camera.position.y = 2 + Math.sin(walkTimer) * 0.15;
+            } else camera.position.y = 2;
+
+            // -- NPC Updates --
+            for(let n of npcs) {
+                let nextNx = n.mesh.position.x + n.direction.x * n.speed * dt;
+                let nextNz = n.mesh.position.z + n.direction.z * n.speed * dt;
+                
+                // If NPC hits a building or edge, turn around
+                if(checkCollision(nextNx, nextNz)) {
+                    n.direction.negate();
+                    n.timer = 0;
+                } else {
+                    n.mesh.position.set(nextNx, n.mesh.position.y, nextNz);
+                }
+
+                n.walkCycle += dt * n.speed * 3;
+                n.legL.rotation.x = Math.sin(n.walkCycle) * 0.6;
+                n.legR.rotation.x = Math.sin(n.walkCycle + Math.PI) * 0.6;
+                n.armL.rotation.x = Math.sin(n.walkCycle + Math.PI) * 0.5;
+                n.armR.rotation.x = Math.sin(n.walkCycle) * 0.5;
+                
+                n.mesh.rotation.y = Math.atan2(n.direction.x, n.direction.z);
+
+                // Wandering AI Turn randomly
+                n.timer += dt;
+                if(n.timer > 3 + Math.random() * 5) {
+                    n.timer = 0;
+                    const cross = new THREE.Vector3(0, 1, 0).cross(n.direction);
+                    n.direction = Math.random() > 0.5 ? cross : cross.negate();
+                }
+            }
+
+            // -- Animate God Anshu --
+            const time = Date.now() * 0.001;
+            godMesh.rotation.y = time; godMesh.rotation.x = time * 0.5;
+            ringMesh.rotation.z = -time * 2;
+            anshuGroup.position.y = 15 + Math.sin(time * 2) * 2;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+    </script>
+</body>
+</html>
